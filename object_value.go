@@ -3,296 +3,292 @@ package xyJson
 import (
 	"sort"
 	"sync"
-	"time"
 )
 
-// objectValue 对象值实现
+// objectValue JSON对象实现
+// objectValue implements the IObject interface
 type objectValue struct {
-	fields map[string]IValue
-	mu     sync.RWMutex
+	data map[string]IValue
+	mu   sync.RWMutex
 }
 
-// NewObject 创建新的对象
+// NewObject 创建新的JSON对象
+// NewObject creates a new JSON object
 func NewObject() IObject {
 	return &objectValue{
-		fields: make(map[string]IValue),
+		data: make(map[string]IValue, DefaultMapCapacity),
 	}
 }
 
-// NewObjectWithCapacity 创建指定容量的对象
+// NewObjectWithCapacity 创建指定容量的JSON对象
+// NewObjectWithCapacity creates a JSON object with specified capacity
 func NewObjectWithCapacity(capacity int) IObject {
+	if capacity <= 0 {
+		capacity = DefaultMapCapacity
+	}
 	return &objectValue{
-		fields: make(map[string]IValue, capacity),
+		data: make(map[string]IValue, capacity),
 	}
 }
 
-// NewObjectFromMap 从map创建对象
-func NewObjectFromMap(m map[string]interface{}) (IObject, error) {
-	obj := NewObject()
-	for k, v := range m {
-		value, err := createValueFromInterface(v)
-		if err != nil {
-			return nil, err
-		}
-		obj.Set(k, value)
-	}
-	return obj, nil
-}
-
-// Type 获取值类型
+// Type 返回值的类型
+// Type returns the type of the value
 func (ov *objectValue) Type() ValueType {
 	return ObjectValueType
 }
 
-// Raw 获取原始Go类型值
+// Raw 返回原始Go类型值
+// Raw returns the raw Go type value
 func (ov *objectValue) Raw() interface{} {
 	ov.mu.RLock()
 	defer ov.mu.RUnlock()
-	
-	result := make(map[string]interface{}, len(ov.fields))
-	for k, v := range ov.fields {
-		result[k] = v.Raw()
+
+	result := make(map[string]interface{}, len(ov.data))
+	for key, value := range ov.data {
+		result[key] = value.Raw()
 	}
 	return result
 }
 
-// String 获取字符串表示
+// String 返回字符串表示
+// String returns the string representation
 func (ov *objectValue) String() string {
-	serializer := NewJSONSerializer()
-	result, _ := serializer.SerializeToString(ov)
-	return result
+	// 对象的字符串表示通常是JSON格式，这里简化为类型名
+	return "[object Object]"
 }
 
-// IsNull 检查是否为null
+// IsNull 检查是否为null值
+// IsNull checks if the value is null
 func (ov *objectValue) IsNull() bool {
-	return false
+	return false // 对象永远不为null
 }
 
-// IsString 检查是否为字符串
-func (ov *objectValue) IsString() bool {
-	return false
-}
-
-// IsNumber 检查是否为数字
-func (ov *objectValue) IsNumber() bool {
-	return false
-}
-
-// IsBool 检查是否为布尔值
-func (ov *objectValue) IsBool() bool {
-	return false
-}
-
-// IsObject 检查是否为对象
-func (ov *objectValue) IsObject() bool {
-	return true
-}
-
-// IsArray 检查是否为数组
-func (ov *objectValue) IsArray() bool {
-	return false
-}
-
-// Clone 深拷贝
+// Clone 创建值的深拷贝
+// Clone creates a deep copy of the value
 func (ov *objectValue) Clone() IValue {
 	ov.mu.RLock()
 	defer ov.mu.RUnlock()
-	
-	newObj := NewObject()
-	for k, v := range ov.fields {
-		newObj.Set(k, v.Clone())
+
+	newObj := NewObjectWithCapacity(len(ov.data))
+	for key, value := range ov.data {
+		newObj.Set(key, value.Clone())
 	}
 	return newObj
 }
 
-// Equals 比较是否相等
+// Equals 比较两个值是否相等
+// Equals compares if two values are equal
 func (ov *objectValue) Equals(other IValue) bool {
-	if other == nil || !other.IsObject() {
+	if other == nil || other.Type() != ObjectValueType {
 		return false
 	}
-	
-	otherObj := other.(IObject)
+
+	otherObj, ok := other.(IObject)
+	if !ok {
+		return false
+	}
+
+	ov.mu.RLock()
+	defer ov.mu.RUnlock()
+
 	if ov.Size() != otherObj.Size() {
 		return false
 	}
-	
-	ov.mu.RLock()
-	defer ov.mu.RUnlock()
-	
-	for k, v := range ov.fields {
-		otherValue, exists := otherObj.Get(k)
-		if !exists || !v.Equals(otherValue) {
+
+	for key, value := range ov.data {
+		otherValue := otherObj.Get(key)
+		if otherValue == nil || !value.Equals(otherValue) {
 			return false
 		}
 	}
+
 	return true
 }
 
-// Int 转换为int
-func (ov *objectValue) Int() (int, error) {
-	return 0, NewTypeError("int", "object", ov.Raw())
-}
-
-// Int64 转换为int64
-func (ov *objectValue) Int64() (int64, error) {
-	return 0, NewTypeError("int64", "object", ov.Raw())
-}
-
-// Float64 转换为float64
-func (ov *objectValue) Float64() (float64, error) {
-	return 0, NewTypeError("float64", "object", ov.Raw())
-}
-
-// Bool 转换为bool
-func (ov *objectValue) Bool() (bool, error) {
-	return ov.Size() > 0, nil
-}
-
-// Time 转换为time.Time
-func (ov *objectValue) Time() (time.Time, error) {
-	return time.Time{}, NewTypeError("time.Time", "object", ov.Raw())
-}
-
-// Bytes 转换为[]byte
-func (ov *objectValue) Bytes() ([]byte, error) {
-	serializer := NewJSONSerializer()
-	return serializer.Serialize(ov)
-}
-
-// Get 获取字段值
-func (ov *objectValue) Get(key string) (IValue, bool) {
+// Get 根据键名获取值
+// Get retrieves a value by key
+func (ov *objectValue) Get(key string) IValue {
 	ov.mu.RLock()
 	defer ov.mu.RUnlock()
-	
-	value, exists := ov.fields[key]
-	return value, exists
+
+	return ov.data[key]
 }
 
-// Set 设置字段值
-func (ov *objectValue) Set(key string, value IValue) {
+// Set 设置键值对
+// Set sets a key-value pair
+func (ov *objectValue) Set(key string, value interface{}) error {
+	if key == "" {
+		return NewInvalidOperationError("set object key", "key cannot be empty")
+	}
+
+	var jsonValue IValue
+	switch v := value.(type) {
+	case IValue:
+		jsonValue = v
+	case nil:
+		jsonValue = &scalarValue{valueType: NullValueType, rawData: nil}
+	default:
+		// 使用工厂创建值
+		factory := NewValueFactory()
+		var err error
+		jsonValue, err = factory.CreateFromRaw(value)
+		if err != nil {
+			return err
+		}
+	}
+
 	ov.mu.Lock()
 	defer ov.mu.Unlock()
-	
-	ov.fields[key] = value
+
+	ov.data[key] = jsonValue
+	return nil
 }
 
-// Delete 删除字段
+// Delete 删除指定键
+// Delete removes the specified key
 func (ov *objectValue) Delete(key string) bool {
 	ov.mu.Lock()
 	defer ov.mu.Unlock()
-	
-	if _, exists := ov.fields[key]; exists {
-		delete(ov.fields, key)
+
+	if _, exists := ov.data[key]; exists {
+		delete(ov.data, key)
 		return true
 	}
 	return false
 }
 
-// Has 检查字段是否存在
+// Has 检查是否包含指定键
+// Has checks if the object contains the specified key
 func (ov *objectValue) Has(key string) bool {
 	ov.mu.RLock()
 	defer ov.mu.RUnlock()
-	
-	_, exists := ov.fields[key]
+
+	_, exists := ov.data[key]
 	return exists
 }
 
-// Keys 获取所有键
+// Keys 返回所有键名
+// Keys returns all key names
 func (ov *objectValue) Keys() []string {
 	ov.mu.RLock()
 	defer ov.mu.RUnlock()
-	
-	keys := make([]string, 0, len(ov.fields))
-	for k := range ov.fields {
-		keys = append(keys, k)
+
+	keys := make([]string, 0, len(ov.data))
+	for key := range ov.data {
+		keys = append(keys, key)
 	}
+
+	// 对键名进行排序，确保结果的一致性
+	sort.Strings(keys)
 	return keys
 }
 
-// Size 获取字段数量
+// Size 返回键值对数量
+// Size returns the number of key-value pairs
 func (ov *objectValue) Size() int {
 	ov.mu.RLock()
 	defer ov.mu.RUnlock()
-	
-	return len(ov.fields)
+
+	return len(ov.data)
 }
 
-// Clear 清空所有字段
+// Clear 清空所有键值对
+// Clear removes all key-value pairs
 func (ov *objectValue) Clear() {
 	ov.mu.Lock()
 	defer ov.mu.Unlock()
-	
-	ov.fields = make(map[string]IValue)
+
+	// 创建新的map而不是逐个删除，更高效
+	ov.data = make(map[string]IValue, DefaultMapCapacity)
 }
 
-// Range 遍历所有字段
+// Range 遍历所有键值对
+// Range iterates over all key-value pairs
 func (ov *objectValue) Range(fn func(key string, value IValue) bool) {
+	if fn == nil {
+		return
+	}
+
 	ov.mu.RLock()
-	fields := make(map[string]IValue, len(ov.fields))
-	for k, v := range ov.fields {
-		fields[k] = v
+	// 创建键的副本以避免在遍历时持有锁
+	keys := make([]string, 0, len(ov.data))
+	for key := range ov.data {
+		keys = append(keys, key)
 	}
 	ov.mu.RUnlock()
-	
-	for k, v := range fields {
-		if !fn(k, v) {
-			break
+
+	// 对键进行排序以确保遍历顺序的一致性
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		ov.mu.RLock()
+		value, exists := ov.data[key]
+		ov.mu.RUnlock()
+
+		if exists {
+			if !fn(key, value) {
+				break
+			}
 		}
 	}
 }
 
-// Merge 合并另一个对象
-func (ov *objectValue) Merge(other IObject) {
-	other.Range(func(key string, value IValue) bool {
-		ov.Set(key, value.Clone())
-		return true
-	})
-}
-
-// SortedPairs 获取排序后的键值对
-func (ov *objectValue) SortedPairs() []KeyValuePair {
-	ov.mu.RLock()
-	defer ov.mu.RUnlock()
-	
-	pairs := make([]KeyValuePair, 0, len(ov.fields))
-	for k, v := range ov.fields {
-		pairs = append(pairs, KeyValuePair{Key: k, Value: v})
-	}
-	
-	sort.Slice(pairs, func(i, j int) bool {
-		return pairs[i].Key < pairs[j].Key
-	})
-	
-	return pairs
-}
-
-// reset 重置对象（用于对象池）
+// reset 重置对象状态（用于对象池）
+// reset resets the object state (for object pool)
 func (ov *objectValue) reset() {
 	ov.mu.Lock()
 	defer ov.mu.Unlock()
-	
-	// 清空字段但保留底层map
-	for k := range ov.fields {
-		delete(ov.fields, k)
+
+	// 清空数据但保留底层map的容量
+	for key := range ov.data {
+		delete(ov.data, key)
 	}
 }
 
-// createValueFromInterface 从interface{}创建IValue
-func createValueFromInterface(v interface{}) (IValue, error) {
-	switch val := v.(type) {
-	case nil:
-		return NewNullValue(), nil
-	case bool:
-		return NewBoolValue(val), nil
-	case string:
-		return NewStringValue(val), nil
-	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64:
-		return NewNumberValue(val)
-	case map[string]interface{}:
-		return NewObjectFromMap(val)
-	case []interface{}:
-		return NewArrayFromSlice(val)
-	default:
-		return nil, NewTypeError("supported type", fmt.Sprintf("%T", v), v)
+// GetSorted 按键名排序返回所有键值对
+// GetSorted returns all key-value pairs sorted by key
+func (ov *objectValue) GetSorted() []struct {
+	Key   string
+	Value IValue
+} {
+	ov.mu.RLock()
+	defer ov.mu.RUnlock()
+
+	result := make([]struct {
+		Key   string
+		Value IValue
+	}, 0, len(ov.data))
+
+	keys := make([]string, 0, len(ov.data))
+	for key := range ov.data {
+		keys = append(keys, key)
 	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		result = append(result, struct {
+			Key   string
+			Value IValue
+		}{
+			Key:   key,
+			Value: ov.data[key],
+		})
+	}
+
+	return result
+}
+
+// Merge 合并另一个对象的键值对
+// Merge merges key-value pairs from another object
+func (ov *objectValue) Merge(other IObject) error {
+	if other == nil {
+		return NewNullPointerError("merge object")
+	}
+
+	other.Range(func(key string, value IValue) bool {
+		ov.Set(key, value)
+		return true
+	})
+
+	return nil
 }

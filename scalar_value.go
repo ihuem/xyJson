@@ -1,295 +1,342 @@
 package xyJson
 
 import (
+	"encoding/base64"
 	"fmt"
-	"math"
 	"strconv"
 	"time"
 )
 
-// scalarValue 标量值实现
+// scalarValue 标量值实现（字符串、数字、布尔值、null）
+// scalarValue implements scalar values (string, number, boolean, null)
 type scalarValue struct {
-	value interface{}
-	vType ValueType
+	valueType ValueType
+	rawData   interface{}
 }
 
-// NewScalarValue 创建标量值
-func NewScalarValue(value interface{}, vType ValueType) IValue {
-	return &scalarValue{
-		value: value,
-		vType: vType,
-	}
-}
-
-// NewNullValue 创建null值
-func NewNullValue() IValue {
-	return &scalarValue{
-		value: nil,
-		vType: NullValueType,
-	}
-}
-
-// NewStringValue 创建字符串值
-func NewStringValue(s string) IValue {
-	return &scalarValue{
-		value: s,
-		vType: StringValueType,
-	}
-}
-
-// NewNumberValue 创建数字值
-func NewNumberValue(n interface{}) (IValue, error) {
-	switch v := n.(type) {
-	case int:
-		return &scalarValue{value: float64(v), vType: NumberValueType}, nil
-	case int8:
-		return &scalarValue{value: float64(v), vType: NumberValueType}, nil
-	case int16:
-		return &scalarValue{value: float64(v), vType: NumberValueType}, nil
-	case int32:
-		return &scalarValue{value: float64(v), vType: NumberValueType}, nil
-	case int64:
-		return &scalarValue{value: float64(v), vType: NumberValueType}, nil
-	case uint:
-		return &scalarValue{value: float64(v), vType: NumberValueType}, nil
-	case uint8:
-		return &scalarValue{value: float64(v), vType: NumberValueType}, nil
-	case uint16:
-		return &scalarValue{value: float64(v), vType: NumberValueType}, nil
-	case uint32:
-		return &scalarValue{value: float64(v), vType: NumberValueType}, nil
-	case uint64:
-		return &scalarValue{value: float64(v), vType: NumberValueType}, nil
-	case float32:
-		return &scalarValue{value: float64(v), vType: NumberValueType}, nil
-	case float64:
-		return &scalarValue{value: v, vType: NumberValueType}, nil
-	default:
-		return nil, NewTypeError("number", fmt.Sprintf("%T", n), n)
-	}
-}
-
-// NewBoolValue 创建布尔值
-func NewBoolValue(b bool) IValue {
-	return &scalarValue{
-		value: b,
-		vType: BoolValueType,
-	}
-}
-
-// Type 获取值类型
+// Type 返回值的类型
+// Type returns the type of the value
 func (sv *scalarValue) Type() ValueType {
-	return sv.vType
+	return sv.valueType
 }
 
-// Raw 获取原始Go类型值
+// Raw 返回原始Go类型值
+// Raw returns the raw Go type value
 func (sv *scalarValue) Raw() interface{} {
-	return sv.value
+	return sv.rawData
 }
 
-// String 获取字符串表示
+// String 返回字符串表示
+// String returns the string representation
 func (sv *scalarValue) String() string {
-	switch sv.vType {
-	case NullValueType:
-		return "null"
+	if sv.IsNull() {
+		return ""
+	}
+
+	switch sv.valueType {
 	case StringValueType:
-		return sv.value.(string)
+		if str, ok := sv.rawData.(string); ok {
+			return str
+		}
+		return ""
 	case NumberValueType:
-		return fmt.Sprintf("%g", sv.value.(float64))
+		return sv.numberToString()
 	case BoolValueType:
-		if sv.value.(bool) {
-			return "true"
+		if b, ok := sv.rawData.(bool); ok {
+			if b {
+				return "true"
+			}
+			return "false"
 		}
 		return "false"
 	default:
-		return fmt.Sprintf("%v", sv.value)
+		return ""
 	}
 }
 
-// IsNull 检查是否为null
+// IsNull 检查是否为null值
+// IsNull checks if the value is null
 func (sv *scalarValue) IsNull() bool {
-	return sv.vType == NullValueType
+	return sv.valueType == NullValueType || sv.rawData == nil
 }
 
-// IsString 检查是否为字符串
-func (sv *scalarValue) IsString() bool {
-	return sv.vType == StringValueType
-}
-
-// IsNumber 检查是否为数字
-func (sv *scalarValue) IsNumber() bool {
-	return sv.vType == NumberValueType
-}
-
-// IsBool 检查是否为布尔值
-func (sv *scalarValue) IsBool() bool {
-	return sv.vType == BoolValueType
-}
-
-// IsObject 检查是否为对象
-func (sv *scalarValue) IsObject() bool {
-	return false
-}
-
-// IsArray 检查是否为数组
-func (sv *scalarValue) IsArray() bool {
-	return false
-}
-
-// Clone 深拷贝
+// Clone 创建值的深拷贝
+// Clone creates a deep copy of the value
 func (sv *scalarValue) Clone() IValue {
 	return &scalarValue{
-		value: sv.value,
-		vType: sv.vType,
+		valueType: sv.valueType,
+		rawData:   sv.rawData,
 	}
 }
 
-// Equals 比较是否相等
+// Equals 比较两个值是否相等
+// Equals compares if two values are equal
 func (sv *scalarValue) Equals(other IValue) bool {
-	if other == nil || sv.Type() != other.Type() {
+	if other == nil {
 		return false
 	}
-	return sv.value == other.Raw()
+
+	if sv.Type() != other.Type() {
+		return false
+	}
+
+	if sv.IsNull() && other.IsNull() {
+		return true
+	}
+
+	if sv.IsNull() || other.IsNull() {
+		return false
+	}
+
+	// 比较原始数据
+	return sv.rawData == other.Raw()
 }
 
-const (
-	maxInt = int(^uint(0) >> 1)
-	minInt = -maxInt - 1
-)
-
-// Int 转换为int
+// Int 返回整数值
+// Int returns the integer value
 func (sv *scalarValue) Int() (int, error) {
-	switch sv.vType {
-	case NullValueType:
-		return 0, NewTypeError("int", "null", nil)
-	case NumberValueType:
-		f := sv.value.(float64)
-		// 检查是否为整数
-		if f != math.Trunc(f) {
-			return 0, NewTypeError("int", "float with fractional part", f)
-		}
-		// 检查溢出
-		if f > float64(maxInt) || f < float64(minInt) {
-			return 0, NewTypeError("int", "number out of range", f)
-		}
-		return int(f), nil
-	case StringValueType:
-		return strconv.Atoi(sv.value.(string))
-	case BoolValueType:
-		if sv.value.(bool) {
-			return 1, nil
-		}
-		return 0, nil
-	default:
-		return 0, NewTypeError("int", sv.vType.String(), sv.value)
+	if sv.IsNull() {
+		return 0, NewTypeMismatchError(NumberValueType, NullValueType, "")
 	}
-}
 
-// Int64 转换为int64
-func (sv *scalarValue) Int64() (int64, error) {
-	switch sv.vType {
-	case NullValueType:
-		return 0, NewTypeError("int64", "null", nil)
+	switch sv.valueType {
 	case NumberValueType:
-		f := sv.value.(float64)
-		// 检查是否为整数
-		if f != math.Trunc(f) {
-			return 0, NewTypeError("int64", "float with fractional part", f)
-		}
-		// 检查溢出
-		if f > float64(math.MaxInt64) || f < float64(math.MinInt64) {
-			return 0, NewTypeError("int64", "number out of range", f)
-		}
-		return int64(f), nil
-	case StringValueType:
-		return strconv.ParseInt(sv.value.(string), 10, 64)
-	case BoolValueType:
-		if sv.value.(bool) {
-			return 1, nil
-		}
-		return 0, nil
-	default:
-		return 0, NewTypeError("int64", sv.vType.String(), sv.value)
-	}
-}
-
-// Float64 转换为float64
-func (sv *scalarValue) Float64() (float64, error) {
-	switch sv.vType {
-	case NullValueType:
-		return 0, NewTypeError("float64", "null", nil)
-	case NumberValueType:
-		return sv.value.(float64), nil
-	case StringValueType:
-		return strconv.ParseFloat(sv.value.(string), 64)
-	case BoolValueType:
-		if sv.value.(bool) {
-			return 1.0, nil
-		}
-		return 0.0, nil
-	default:
-		return 0, NewTypeError("float64", sv.vType.String(), sv.value)
-	}
-}
-
-// Bool 转换为bool
-func (sv *scalarValue) Bool() (bool, error) {
-	switch sv.vType {
-	case NullValueType:
-		return false, nil
-	case BoolValueType:
-		return sv.value.(bool), nil
-	case NumberValueType:
-		return sv.value.(float64) != 0, nil
-	case StringValueType:
-		s := sv.value.(string)
-		if s == "" {
-			return false, nil
-		}
-		return strconv.ParseBool(s)
-	default:
-		return false, NewTypeError("bool", sv.vType.String(), sv.value)
-	}
-}
-
-// Time 转换为time.Time
-func (sv *scalarValue) Time() (time.Time, error) {
-	switch sv.vType {
-	case NullValueType:
-		return time.Time{}, NewTypeError("time.Time", "null", nil)
-	case StringValueType:
-		s := sv.value.(string)
-		// 尝试多种时间格式
-		formats := []string{
-			time.RFC3339,
-			time.RFC3339Nano,
-			"2006-01-02T15:04:05Z",
-			"2006-01-02 15:04:05",
-			"2006-01-02",
-		}
-		for _, format := range formats {
-			if t, err := time.Parse(format, s); err == nil {
-				return t, nil
+		switch v := sv.rawData.(type) {
+		case int64:
+			// 检查int64到int的溢出
+			const maxInt = int64(^uint(0) >> 1)
+			const minInt = -maxInt - 1
+			if v > maxInt || v < minInt {
+				return 0, NewInvalidOperationError("int conversion", fmt.Sprintf("value %d overflows int", v))
 			}
+			return int(v), nil
+		case float64:
+			// 检查浮点数精度丢失和溢出
+			if v != float64(int64(v)) {
+				return 0, NewInvalidOperationError("int conversion", fmt.Sprintf("float64 %g has fractional part", v))
+			}
+			intVal := int64(v)
+			const maxInt = int64(^uint(0) >> 1)
+			const minInt = -maxInt - 1
+			if intVal > maxInt || intVal < minInt {
+				return 0, NewInvalidOperationError("int conversion", fmt.Sprintf("value %g overflows int", v))
+			}
+			return int(intVal), nil
+		default:
+			return 0, NewInvalidOperationError("int conversion", fmt.Sprintf("unexpected number type: %T", v))
 		}
-		return time.Time{}, NewTypeError("time.Time", "invalid time format", s)
-	case NumberValueType:
-		// 假设是Unix时间戳
-		timestamp := sv.value.(float64)
-		return time.Unix(int64(timestamp), 0), nil
+	case StringValueType:
+		if str, ok := sv.rawData.(string); ok {
+			if i, err := strconv.Atoi(str); err == nil {
+				return i, nil
+			}
+			return 0, NewInvalidOperationError("int conversion", fmt.Sprintf("cannot parse '%s' as int", str))
+		}
+		return 0, NewTypeMismatchError(NumberValueType, StringValueType, "")
+	case BoolValueType:
+		if b, ok := sv.rawData.(bool); ok {
+			if b {
+				return 1, nil
+			}
+			return 0, nil
+		}
+		return 0, NewTypeMismatchError(NumberValueType, BoolValueType, "")
 	default:
-		return time.Time{}, NewTypeError("time.Time", sv.vType.String(), sv.value)
+		return 0, NewTypeMismatchError(NumberValueType, sv.valueType, "")
 	}
 }
 
-// Bytes 转换为[]byte
-func (sv *scalarValue) Bytes() ([]byte, error) {
-	switch sv.vType {
-	case NullValueType:
-		return nil, nil
+// Int64 返回64位整数值
+// Int64 returns the 64-bit integer value
+func (sv *scalarValue) Int64() (int64, error) {
+	if sv.IsNull() {
+		return 0, NewTypeMismatchError(NumberValueType, NullValueType, "")
+	}
+
+	switch sv.valueType {
+	case NumberValueType:
+		switch v := sv.rawData.(type) {
+		case int64:
+			return v, nil
+		case float64:
+			// 检查浮点数精度丢失
+			if v != float64(int64(v)) {
+				return 0, NewInvalidOperationError("int64 conversion", fmt.Sprintf("float64 %g has fractional part", v))
+			}
+			// 检查溢出
+			if v > 9223372036854775807 || v < -9223372036854775808 {
+				return 0, NewInvalidOperationError("int64 conversion", fmt.Sprintf("value %g overflows int64", v))
+			}
+			return int64(v), nil
+		default:
+			return 0, NewInvalidOperationError("int64 conversion", fmt.Sprintf("unexpected number type: %T", v))
+		}
 	case StringValueType:
-		return []byte(sv.value.(string)), nil
+		if str, ok := sv.rawData.(string); ok {
+			if i, err := strconv.ParseInt(str, 10, 64); err == nil {
+				return i, nil
+			}
+			return 0, NewInvalidOperationError("int64 conversion", fmt.Sprintf("cannot parse '%s' as int64", str))
+		}
+		return 0, NewTypeMismatchError(NumberValueType, StringValueType, "")
+	case BoolValueType:
+		if b, ok := sv.rawData.(bool); ok {
+			if b {
+				return 1, nil
+			}
+			return 0, nil
+		}
+		return 0, NewTypeMismatchError(NumberValueType, BoolValueType, "")
 	default:
-		return []byte(sv.String()), nil
+		return 0, NewTypeMismatchError(NumberValueType, sv.valueType, "")
+	}
+}
+
+// Float64 返回64位浮点数值
+// Float64 returns the 64-bit float value
+func (sv *scalarValue) Float64() (float64, error) {
+	if sv.IsNull() {
+		return 0, NewTypeMismatchError(NumberValueType, NullValueType, "")
+	}
+
+	switch sv.valueType {
+	case NumberValueType:
+		switch v := sv.rawData.(type) {
+		case int64:
+			return float64(v), nil
+		case float64:
+			return v, nil
+		default:
+			return 0, NewInvalidOperationError("float64 conversion", fmt.Sprintf("unexpected number type: %T", v))
+		}
+	case StringValueType:
+		if str, ok := sv.rawData.(string); ok {
+			if f, err := strconv.ParseFloat(str, 64); err == nil {
+				return f, nil
+			}
+			return 0, NewInvalidOperationError("float64 conversion", fmt.Sprintf("cannot parse '%s' as float64", str))
+		}
+		return 0, NewTypeMismatchError(NumberValueType, StringValueType, "")
+	case BoolValueType:
+		if b, ok := sv.rawData.(bool); ok {
+			if b {
+				return 1.0, nil
+			}
+			return 0.0, nil
+		}
+		return 0, NewTypeMismatchError(NumberValueType, BoolValueType, "")
+	default:
+		return 0, NewTypeMismatchError(NumberValueType, sv.valueType, "")
+	}
+}
+
+// Bool 返回布尔值
+// Bool returns the boolean value
+func (sv *scalarValue) Bool() (bool, error) {
+	if sv.IsNull() {
+		return false, NewTypeMismatchError(BoolValueType, NullValueType, "")
+	}
+
+	switch sv.valueType {
+	case BoolValueType:
+		if b, ok := sv.rawData.(bool); ok {
+			return b, nil
+		}
+		return false, NewInvalidOperationError("bool conversion", "invalid bool data")
+	case NumberValueType:
+		switch v := sv.rawData.(type) {
+		case int64:
+			return v != 0, nil
+		case float64:
+			return v != 0.0, nil
+		default:
+			return false, NewInvalidOperationError("bool conversion", fmt.Sprintf("unexpected number type: %T", v))
+		}
+	case StringValueType:
+		if str, ok := sv.rawData.(string); ok {
+			if b, err := strconv.ParseBool(str); err == nil {
+				return b, nil
+			}
+			// 对于非标准布尔字符串，使用长度判断
+			return len(str) > 0, nil
+		}
+		return false, NewTypeMismatchError(BoolValueType, StringValueType, "")
+	default:
+		return false, NewTypeMismatchError(BoolValueType, sv.valueType, "")
+	}
+}
+
+// Time 返回时间值
+// Time returns the time value
+func (sv *scalarValue) Time() (time.Time, error) {
+	if sv.IsNull() {
+		return time.Time{}, NewTypeMismatchError(StringValueType, NullValueType, "")
+	}
+
+	if sv.valueType != StringValueType {
+		return time.Time{}, NewTypeMismatchError(StringValueType, sv.valueType, "")
+	}
+
+	str, ok := sv.rawData.(string)
+	if !ok {
+		return time.Time{}, NewInvalidOperationError("time conversion", "invalid string data")
+	}
+
+	// 尝试多种时间格式
+	formats := []string{
+		time.RFC3339,
+		time.RFC3339Nano,
+		"2006-01-02T15:04:05Z",
+		"2006-01-02T15:04:05",
+		"2006-01-02 15:04:05",
+		"2006-01-02",
+		"15:04:05",
+	}
+
+	for _, format := range formats {
+		if t, err := time.Parse(format, str); err == nil {
+			return t, nil
+		}
+	}
+
+	return time.Time{}, NewInvalidOperationError("time conversion", fmt.Sprintf("cannot parse '%s' as time", str))
+}
+
+// Bytes 返回字节数组
+// Bytes returns the byte array
+func (sv *scalarValue) Bytes() ([]byte, error) {
+	if sv.IsNull() {
+		return nil, NewTypeMismatchError(StringValueType, NullValueType, "")
+	}
+
+	if sv.valueType != StringValueType {
+		return nil, NewTypeMismatchError(StringValueType, sv.valueType, "")
+	}
+
+	str, ok := sv.rawData.(string)
+	if !ok {
+		return nil, NewInvalidOperationError("bytes conversion", "invalid string data")
+	}
+
+	// 尝试base64解码
+	if data, err := base64.StdEncoding.DecodeString(str); err == nil {
+		return data, nil
+	}
+
+	// 如果不是base64，直接返回字符串的字节表示
+	return []byte(str), nil
+}
+
+// numberToString 将数字转换为字符串
+// numberToString converts a number to string
+func (sv *scalarValue) numberToString() string {
+	switch v := sv.rawData.(type) {
+	case int64:
+		return strconv.FormatInt(v, 10)
+	case float64:
+		// 使用-1精度让Go自动选择最短表示
+		return strconv.FormatFloat(v, 'g', -1, 64)
+	default:
+		return fmt.Sprintf("%v", v)
 	}
 }

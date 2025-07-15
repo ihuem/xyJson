@@ -1,123 +1,588 @@
 package xyJson
 
 import (
-	"encoding/json"
-	"fmt"
+	"bytes"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
-// JSONParser JSON解析器
-type JSONParser struct {
-	config ParserConfig
+// DefaultMaxDepth 默认最大解析深度
+const DefaultMaxDepth = 1000
+
+// parser JSON解析器实现
+// parser implements the JSON parser
+type parser struct {
+	factory  IValueFactory
+	maxDepth int
+	data     []byte
+	pos      int
+	line     int
+	column   int
+	depth    int
+	lastChar rune
+	lastSize int
 }
 
-// NewJSONParser 创建新的JSON解析器
-func NewJSONParser() IParser {
-	return &JSONParser{
-		config: GetGlobalConfig().Parser,
+// NewParser 创建新的JSON解析器
+// NewParser creates a new JSON parser
+func NewParser() IParser {
+	return &parser{
+		factory:  NewValueFactory(),
+		maxDepth: DefaultMaxDepth,
+		line:     1,
+		column:   1,
 	}
 }
 
-// NewJSONParserWithConfig 使用指定配置创建JSON解析器
-func NewJSONParserWithConfig(config ParserConfig) IParser {
-	return &JSONParser{
-		config: config,
+// NewParserWithFactory 使用指定工厂创建JSON解析器
+// NewParserWithFactory creates a JSON parser with the specified factory
+func NewParserWithFactory(factory IValueFactory) IParser {
+	if factory == nil {
+		factory = NewValueFactory()
+	}
+	return &parser{
+		factory:  factory,
+		maxDepth: DefaultMaxDepth,
+		line:     1,
+		column:   1,
 	}
 }
 
 // Parse 解析JSON字节数组
-func (p *JSONParser) Parse(data []byte) (IValue, error) {
+// Parse parses JSON byte array
+func (p *parser) Parse(data []byte) (IValue, error) {
 	if len(data) == 0 {
-		return nil, NewJSONError("empty input", 1, 1, 0)
+		return nil, NewInvalidJSONError("empty input", nil)
 	}
-	
-	// 使用Go标准库进行初步解析
-	var raw interface{}
-	err := json.Unmarshal(data, &raw)
+
+	p.reset(data)
+	p.skipWhitespace()
+
+	if p.pos >= len(p.data) {
+		return nil, NewInvalidJSONError("unexpected end of input", nil)
+	}
+
+	value, err := p.parseValue()
 	if err != nil {
-		return nil, p.wrapJSONError(err, string(data))
+		return nil, err
 	}
-	
-	// 转换为IValue
-	return p.convertToIValue(raw)
+
+	// 检查是否还有多余的字符
+	p.skipWhitespace()
+	if p.pos < len(p.data) {
+		return nil, NewInvalidJSONError("unexpected character after JSON", nil)
+	}
+
+	return value, nil
 }
 
 // ParseString 解析JSON字符串
-func (p *JSONParser) ParseString(s string) (IValue, error) {
-	return p.Parse([]byte(s))
+// ParseString parses JSON string
+func (p *parser) ParseString(data string) (IValue, error) {
+	return p.Parse([]byte(data))
 }
 
-// convertToIValue 将interface{}转换为IValue
-func (p *JSONParser) convertToIValue(raw interface{}) (IValue, error) {
-	switch v := raw.(type) {
-	case nil:
-		return NewNullValue(), nil
-	case bool:
-		return NewBoolValue(v), nil
-	case string:
-		return NewStringValue(v), nil
-	case float64:
-		return NewNumberValue(v)
-	case map[string]interface{}:
-		return p.convertMapToObject(v)
-	case []interface{}:
-		return p.convertSliceToArray(v)
-	default:
-		return nil, NewTypeError("supported JSON type", fmt.Sprintf("%T", v), v)
+// SetMaxDepth 设置最大解析深度
+// SetMaxDepth sets the maximum parsing depth
+func (p *parser) SetMaxDepth(depth int) {
+	if depth > 0 {
+		p.maxDepth = depth
 	}
 }
 
-// convertMapToObject 将map转换为IObject
-func (p *JSONParser) convertMapToObject(m map[string]interface{}) (IObject, error) {
-	obj := NewObjectWithCapacity(len(m))
-	for k, v := range m {
-		value, err := p.convertToIValue(v)
+// GetMaxDepth 获取最大解析深度
+// GetMaxDepth gets the maximum parsing depth
+func (p *parser) GetMaxDepth() int {
+	return p.maxDepth
+}
+
+// reset 重置解析器状态
+// reset resets the parser state
+func (p *parser) reset(data []byte) {
+	p.data = data
+	p.pos = 0
+	p.line = 1
+	p.column = 1
+	p.depth = 0
+	p.lastChar = 0
+	p.lastSize = 0
+}
+
+// parseValue 解析JSON值
+// parseValue parses a JSON value
+func (p *parser) parseValue() (IValue, error) {
+	if p.depth >= p.maxDepth {
+		return nil, NewInvalidJSONError("maximum depth exceeded", nil)
+	}
+
+	p.skipWhitespace()
+
+	if p.pos >= len(p.data) {
+		return nil, NewInvalidJSONError("unexpected end of input", nil)
+	}
+
+	ch := p.data[p.pos]
+	switch ch {
+	case '"':
+		return p.parseString()
+	case '{':
+		return p.parseObject()
+	case '[':
+		return p.parseArray()
+	case 't', 'f':
+		return p.parseBool()
+	case 'n':
+		return p.parseNull()
+	case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+		return p.parseNumber()
+	default:
+		return nil, NewInvalidJSONError("unexpected character: "+string(ch), nil)
+	}
+}
+
+// parseString 解析字符串
+// parseString parses a string
+func (p *parser) parseString() (IValue, error) {
+	if p.data[p.pos] != '"' {
+		return nil, NewInvalidJSONError("expected '\"'", nil)
+	}
+
+	p.advance() // 跳过开始的引号
+	start := p.pos
+	var buf []byte
+	hasEscape := false
+
+	for p.pos < len(p.data) {
+		ch := p.data[p.pos]
+		if ch == '"' {
+			// 字符串结束
+			var str string
+			if hasEscape {
+				if buf == nil {
+					buf = make([]byte, 0, p.pos-start)
+					buf = append(buf, p.data[start:p.pos]...)
+				}
+				var err error
+				str, err = p.unescapeString(string(buf))
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				str = string(p.data[start:p.pos])
+			}
+			p.advance() // 跳过结束的引号
+			return p.factory.CreateString(str), nil
+		}
+
+		if ch == '\\' {
+			hasEscape = true
+			if buf == nil {
+				buf = make([]byte, 0, len(p.data)-start)
+				buf = append(buf, p.data[start:p.pos]...)
+			}
+			p.advance() // 跳过反斜杠
+			if p.pos >= len(p.data) {
+				return nil, NewInvalidJSONError("unexpected end of input in string escape", nil)
+			}
+			escapeChar := p.data[p.pos]
+			switch escapeChar {
+			case '"', '\\', '/':
+				buf = append(buf, escapeChar)
+			case 'b':
+				buf = append(buf, '\b')
+			case 'f':
+				buf = append(buf, '\f')
+			case 'n':
+				buf = append(buf, '\n')
+			case 'r':
+				buf = append(buf, '\r')
+			case 't':
+				buf = append(buf, '\t')
+			case 'u':
+				// Unicode转义
+				unicodeBytes, err := p.parseUnicodeEscape()
+				if err != nil {
+					return nil, err
+				}
+				buf = append(buf, unicodeBytes...)
+				continue // parseUnicodeEscape已经推进了位置
+			default:
+				return nil, NewInvalidJSONError("invalid escape character: \\"+string(escapeChar), nil)
+			}
+			p.advance()
+			continue
+		}
+
+		if ch < 0x20 {
+			return nil, NewInvalidJSONError("invalid character in string", nil)
+		}
+
+		if hasEscape && buf != nil {
+			buf = append(buf, ch)
+		}
+		p.advance()
+	}
+
+	return nil, NewInvalidJSONError("unterminated string", nil)
+}
+
+// parseUnicodeEscape 解析Unicode转义序列
+// parseUnicodeEscape parses Unicode escape sequence
+func (p *parser) parseUnicodeEscape() ([]byte, error) {
+	// 当前位置应该在'u'字符
+	p.advance() // 跳过'u'
+
+	if p.pos+4 > len(p.data) {
+		return nil, NewInvalidJSONError("incomplete unicode escape", nil)
+	}
+
+	hexStr := string(p.data[p.pos : p.pos+4])
+	codePoint, err := strconv.ParseUint(hexStr, 16, 16)
+	if err != nil {
+		return nil, NewInvalidJSONError("invalid unicode escape: \\u"+hexStr, nil)
+	}
+
+	p.pos += 4
+	p.column += 4
+
+	// 处理UTF-16代理对
+	if 0xD800 <= codePoint && codePoint <= 0xDBFF {
+		// 高代理，需要低代理
+		if p.pos+6 > len(p.data) || p.data[p.pos] != '\\' || p.data[p.pos+1] != 'u' {
+			return nil, NewInvalidJSONError("incomplete surrogate pair", nil)
+		}
+
+		p.pos += 2 // 跳过\u
+		p.column += 2
+
+		lowHexStr := string(p.data[p.pos : p.pos+4])
+		lowCodePoint, err := strconv.ParseUint(lowHexStr, 16, 16)
+		if err != nil {
+			return nil, NewInvalidJSONError("invalid unicode escape: \\u"+lowHexStr, nil)
+		}
+
+		if !(0xDC00 <= lowCodePoint && lowCodePoint <= 0xDFFF) {
+			return nil, NewInvalidJSONError("invalid low surrogate", nil)
+		}
+
+		p.pos += 4
+		p.column += 4
+
+		// 组合代理对
+		fullCodePoint := 0x10000 + (codePoint-0xD800)<<10 + (lowCodePoint - 0xDC00)
+		buf := make([]byte, 4)
+		n := utf8.EncodeRune(buf, rune(fullCodePoint))
+		return buf[:n], nil
+	}
+
+	// 普通Unicode字符
+	buf := make([]byte, 4)
+	n := utf8.EncodeRune(buf, rune(codePoint))
+	return buf[:n], nil
+}
+
+// parseObject 解析对象
+// parseObject parses an object
+func (p *parser) parseObject() (IValue, error) {
+	if p.data[p.pos] != '{' {
+		return nil, NewInvalidJSONError("expected '{'", nil)
+	}
+
+	p.depth++
+	defer func() { p.depth-- }()
+
+	p.advance() // 跳过 '{'
+	p.skipWhitespace()
+
+	obj := p.factory.CreateObject()
+
+	// 空对象
+	if p.pos < len(p.data) && p.data[p.pos] == '}' {
+		p.advance()
+		return obj, nil
+	}
+
+	for {
+		// 解析键
+		p.skipWhitespace()
+		if p.pos >= len(p.data) {
+			return nil, NewInvalidJSONError("unexpected end of input in object", nil)
+		}
+
+		if p.data[p.pos] != '"' {
+			return nil, NewInvalidJSONError("expected string key", nil)
+		}
+
+		keyValue, err := p.parseString()
 		if err != nil {
 			return nil, err
 		}
-		obj.Set(k, value)
+		key := keyValue.String()
+
+		// 解析冒号
+		p.skipWhitespace()
+		if p.pos >= len(p.data) || p.data[p.pos] != ':' {
+			return nil, NewInvalidJSONError("expected ':'", nil)
+		}
+		p.advance() // 跳过 ':'
+
+		// 解析值
+		value, err := p.parseValue()
+		if err != nil {
+			return nil, err
+		}
+
+		if err := obj.Set(key, value); err != nil {
+			return nil, err
+		}
+
+		// 检查下一个字符
+		p.skipWhitespace()
+		if p.pos >= len(p.data) {
+			return nil, NewInvalidJSONError("unexpected end of input in object", nil)
+		}
+
+		ch := p.data[p.pos]
+		if ch == '}' {
+			p.advance()
+			break
+		} else if ch == ',' {
+			p.advance()
+			// 继续下一个键值对
+		} else {
+			return nil, NewInvalidJSONError("expected ',' or '}'", nil)
+		}
 	}
+
 	return obj, nil
 }
 
-// convertSliceToArray 将slice转换为IArray
-func (p *JSONParser) convertSliceToArray(s []interface{}) (IArray, error) {
-	arr := NewArrayWithCapacity(len(s))
-	for _, v := range s {
-		value, err := p.convertToIValue(v)
+// parseArray 解析数组
+// parseArray parses an array
+func (p *parser) parseArray() (IValue, error) {
+	if p.data[p.pos] != '[' {
+		return nil, NewInvalidJSONError("expected '['", nil)
+	}
+
+	p.depth++
+	defer func() { p.depth-- }()
+
+	p.advance() // 跳过 '['
+	p.skipWhitespace()
+
+	arr := p.factory.CreateArray()
+
+	// 空数组
+	if p.pos < len(p.data) && p.data[p.pos] == ']' {
+		p.advance()
+		return arr, nil
+	}
+
+	for {
+		// 解析值
+		value, err := p.parseValue()
 		if err != nil {
 			return nil, err
 		}
-		arr.Append(value)
+
+		if err := arr.Append(value); err != nil {
+			return nil, err
+		}
+
+		// 检查下一个字符
+		p.skipWhitespace()
+		if p.pos >= len(p.data) {
+			return nil, NewInvalidJSONError("unexpected end of input in array", nil)
+		}
+
+		ch := p.data[p.pos]
+		if ch == ']' {
+			p.advance()
+			break
+		} else if ch == ',' {
+			p.advance()
+			// 继续下一个元素
+		} else {
+			return nil, NewInvalidJSONError("expected ',' or ']'", nil)
+		}
 	}
+
 	return arr, nil
 }
 
-// wrapJSONError 包装JSON错误
-func (p *JSONParser) wrapJSONError(err error, input string) error {
-	if syntaxErr, ok := err.(*json.SyntaxError); ok {
-		line, col := p.getLineColumn(input, syntaxErr.Offset)
-		return NewJSONError(syntaxErr.Error(), line, col, syntaxErr.Offset)
+// parseBool 解析布尔值
+// parseBool parses a boolean value
+func (p *parser) parseBool() (IValue, error) {
+	if p.pos+4 <= len(p.data) && string(p.data[p.pos:p.pos+4]) == "true" {
+		p.pos += 4
+		p.column += 4
+		return p.factory.CreateBool(true), nil
 	}
-	if typeErr, ok := err.(*json.UnmarshalTypeError); ok {
-		line, col := p.getLineColumn(input, typeErr.Offset)
-		return NewJSONError(typeErr.Error(), line, col, typeErr.Offset)
+
+	if p.pos+5 <= len(p.data) && string(p.data[p.pos:p.pos+5]) == "false" {
+		p.pos += 5
+		p.column += 5
+		return p.factory.CreateBool(false), nil
 	}
-	return NewJSONError(err.Error(), 1, 1, 0)
+
+	return nil, NewInvalidJSONError("invalid boolean value", nil)
 }
 
-// getLineColumn 根据偏移量获取行列号
-func (p *JSONParser) getLineColumn(input string, offset int64) (int, int) {
-	line := 1
-	col := 1
-	for i := int64(0); i < offset && i < int64(len(input)); i++ {
-		if input[i] == '\n' {
-			line++
-			col = 1
-		} else {
-			col++
+// parseNull 解析null值
+// parseNull parses a null value
+func (p *parser) parseNull() (IValue, error) {
+	if p.pos+4 <= len(p.data) && string(p.data[p.pos:p.pos+4]) == "null" {
+		p.pos += 4
+		p.column += 4
+		return p.factory.CreateNull(), nil
+	}
+
+	return nil, NewInvalidJSONError("invalid null value", nil)
+}
+
+// parseNumber 解析数字
+// parseNumber parses a number
+func (p *parser) parseNumber() (IValue, error) {
+	start := p.pos
+
+	// 处理负号
+	if p.pos < len(p.data) && p.data[p.pos] == '-' {
+		p.advance()
+	}
+
+	// 处理整数部分
+	if p.pos >= len(p.data) {
+		return nil, NewInvalidJSONError("incomplete number", nil)
+	}
+
+	if p.data[p.pos] == '0' {
+		p.advance()
+	} else if p.data[p.pos] >= '1' && p.data[p.pos] <= '9' {
+		p.advance()
+		for p.pos < len(p.data) && p.data[p.pos] >= '0' && p.data[p.pos] <= '9' {
+			p.advance()
+		}
+	} else {
+		return nil, NewInvalidJSONError("invalid number", nil)
+	}
+
+	isFloat := false
+
+	// 处理小数部分
+	if p.pos < len(p.data) && p.data[p.pos] == '.' {
+		isFloat = true
+		p.advance()
+		if p.pos >= len(p.data) || p.data[p.pos] < '0' || p.data[p.pos] > '9' {
+			return nil, NewInvalidJSONError("invalid number: missing digits after decimal point", nil)
+		}
+		for p.pos < len(p.data) && p.data[p.pos] >= '0' && p.data[p.pos] <= '9' {
+			p.advance()
 		}
 	}
-	return line, col
+
+	// 处理指数部分
+	if p.pos < len(p.data) && (p.data[p.pos] == 'e' || p.data[p.pos] == 'E') {
+		isFloat = true
+		p.advance()
+		if p.pos < len(p.data) && (p.data[p.pos] == '+' || p.data[p.pos] == '-') {
+			p.advance()
+		}
+		if p.pos >= len(p.data) || p.data[p.pos] < '0' || p.data[p.pos] > '9' {
+			return nil, NewInvalidJSONError("invalid number: missing digits in exponent", nil)
+		}
+		for p.pos < len(p.data) && p.data[p.pos] >= '0' && p.data[p.pos] <= '9' {
+			p.advance()
+		}
+	}
+
+	numStr := string(p.data[start:p.pos])
+
+	if isFloat {
+		val, err := strconv.ParseFloat(numStr, 64)
+		if err != nil {
+			return nil, NewInvalidJSONError("invalid number: "+numStr, nil)
+		}
+		return p.factory.CreateNumber(val)
+	} else {
+		val, err := strconv.ParseInt(numStr, 10, 64)
+		if err != nil {
+			return nil, NewInvalidJSONError("invalid number: "+numStr, nil)
+		}
+		return p.factory.CreateNumber(val)
+	}
+}
+
+// skipWhitespace 跳过空白字符
+// skipWhitespace skips whitespace characters
+func (p *parser) skipWhitespace() {
+	for p.pos < len(p.data) {
+		ch := p.data[p.pos]
+		if ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n' {
+			p.advance()
+		} else {
+			break
+		}
+	}
+}
+
+// advance 推进位置并更新行列信息
+// advance advances position and updates line/column information
+func (p *parser) advance() {
+	if p.pos < len(p.data) {
+		ch := p.data[p.pos]
+		if ch == '\n' {
+			p.line++
+			p.column = 1
+		} else {
+			p.column++
+		}
+		p.pos++
+	}
+}
+
+// unescapeString 反转义字符串
+// unescapeString unescapes a string
+func (p *parser) unescapeString(s string) (string, error) {
+	if !strings.Contains(s, "\\") {
+		return s, nil
+	}
+
+	var buf bytes.Buffer
+	for i := 0; i < len(s); i++ {
+		if s[i] == '\\' && i+1 < len(s) {
+			switch s[i+1] {
+			case '"', '\\', '/':
+				buf.WriteByte(s[i+1])
+			case 'b':
+				buf.WriteByte('\b')
+			case 'f':
+				buf.WriteByte('\f')
+			case 'n':
+				buf.WriteByte('\n')
+			case 'r':
+				buf.WriteByte('\r')
+			case 't':
+				buf.WriteByte('\t')
+			case 'u':
+				if i+5 < len(s) {
+					hexStr := s[i+2 : i+6]
+					codePoint, err := strconv.ParseUint(hexStr, 16, 16)
+					if err != nil {
+						return "", NewInvalidJSONError("invalid unicode escape: \\u"+hexStr, nil)
+					}
+					buf.WriteRune(rune(codePoint))
+					i += 4 // 额外跳过4个字符
+				} else {
+					return "", NewInvalidJSONError("incomplete unicode escape", nil)
+				}
+			default:
+				return "", NewInvalidJSONError("invalid escape character", nil)
+			}
+			i++ // 跳过转义字符
+		} else {
+			buf.WriteByte(s[i])
+		}
+	}
+	return buf.String(), nil
 }

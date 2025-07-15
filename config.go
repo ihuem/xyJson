@@ -1,291 +1,339 @@
 package xyJson
 
 import (
-	"os"
-	"strconv"
 	"time"
 )
 
 // Config 全局配置
+// Config represents global configuration
 type Config struct {
-	Parser      ParserConfig      `json:"parser"`
-	Serializer  SerializerConfig  `json:"serializer"`
-	ObjectPool  ObjectPoolConfig  `json:"object_pool"`
+	// 解析器配置
+	Parser ParserConfig `json:"parser"`
+	
+	// 序列化器配置
+	Serializer SerializerConfig `json:"serializer"`
+	
+	// 对象池配置
+	ObjectPool ObjectPoolConfig `json:"object_pool"`
+	
+	// 性能监控配置
 	Performance PerformanceConfig `json:"performance"`
-	JSONPath    JSONPathConfig    `json:"json_path"`
+	
+	// JSONPath配置
+	JSONPath JSONPathConfig `json:"jsonpath"`
 }
 
 // ParserConfig 解析器配置
+// ParserConfig represents parser configuration
 type ParserConfig struct {
-	MaxDepth        int  `json:"max_depth"`         // 最大嵌套深度
-	AllowComments   bool `json:"allow_comments"`    // 是否允许注释
-	AllowTrailing   bool `json:"allow_trailing"`    // 是否允许尾随逗号
-	StrictMode      bool `json:"strict_mode"`       // 严格模式
-	ValidateUTF8    bool `json:"validate_utf8"`     // 验证UTF-8编码
-	BufferSize      int  `json:"buffer_size"`       // 缓冲区大小
-	EnableStreaming bool `json:"enable_streaming"`  // 启用流式解析
+	// 最大嵌套深度
+	MaxNestingDepth int `json:"max_nesting_depth"`
+	
+	// 缓冲区大小
+	BufferSize int `json:"buffer_size"`
+	
+	// 是否允许注释
+	AllowComments bool `json:"allow_comments"`
+	
+	// 是否允许尾随逗号
+	AllowTrailingCommas bool `json:"allow_trailing_commas"`
+	
+	// 是否严格模式
+	StrictMode bool `json:"strict_mode"`
 }
 
 // SerializerConfig 序列化器配置
+// SerializerConfig represents serializer configuration
 type SerializerConfig struct {
-	Indent          string `json:"indent"`            // 缩进字符
-	EscapeHTML      bool   `json:"escape_html"`       // 转义HTML
-	SortKeys        bool   `json:"sort_keys"`         // 排序键
-	CompactOutput   bool   `json:"compact_output"`    // 紧凑输出
-	BufferSize      int    `json:"buffer_size"`       // 缓冲区大小
-	EnableStreaming bool   `json:"enable_streaming"`  // 启用流式序列化
+	// 默认缩进
+	DefaultIndent string `json:"default_indent"`
+	
+	// 是否转义HTML
+	EscapeHTML bool `json:"escape_html"`
+	
+	// 是否排序键
+	SortKeys bool `json:"sort_keys"`
+	
+	// 最大序列化深度
+	MaxDepth int `json:"max_depth"`
+	
+	// 是否紧凑模式
+	CompactMode bool `json:"compact_mode"`
 }
 
 // ObjectPoolConfig 对象池配置
+// ObjectPoolConfig represents object pool configuration
 type ObjectPoolConfig struct {
-	InitialSize     int           `json:"initial_size"`     // 初始大小
-	MaxSize         int           `json:"max_size"`         // 最大大小
-	CleanupInterval time.Duration `json:"cleanup_interval"` // 清理间隔
-	EnableStats     bool          `json:"enable_stats"`     // 启用统计
-	AutoResize      bool          `json:"auto_resize"`      // 自动调整大小
-	MaxIdleTime     time.Duration `json:"max_idle_time"`    // 最大空闲时间
+	// 是否启用对象池
+	Enabled bool `json:"enabled"`
+	
+	// 最大池大小
+	MaxPoolSize int `json:"max_pool_size"`
+	
+	// 清理间隔
+	CleanupInterval time.Duration `json:"cleanup_interval"`
+	
+	// 最大空闲时间
+	MaxIdleTime time.Duration `json:"max_idle_time"`
+	
+	// 预分配大小
+	PreallocateSize int `json:"preallocate_size"`
 }
 
-// PerformanceConfig 性能配置
+// PerformanceConfig 性能监控配置
+// PerformanceConfig represents performance monitoring configuration
 type PerformanceConfig struct {
-	EnableMonitoring bool          `json:"enable_monitoring"` // 启用性能监控
-	SampleRate       float64       `json:"sample_rate"`       // 采样率
-	MetricsInterval  time.Duration `json:"metrics_interval"`  // 指标收集间隔
-	EnableMemStats   bool          `json:"enable_mem_stats"`  // 启用内存统计
-	EnableCPUProfile bool          `json:"enable_cpu_profile"` // 启用CPU性能分析
-	LogSlowOps       bool          `json:"log_slow_ops"`      // 记录慢操作
-	SlowOpThreshold  time.Duration `json:"slow_op_threshold"` // 慢操作阈值
+	// 是否启用监控
+	Enabled bool `json:"enabled"`
+	
+	// 最大快照数量
+	MaxSnapshots int `json:"max_snapshots"`
+	
+	// 快照间隔
+	SnapshotInterval time.Duration `json:"snapshot_interval"`
+	
+	// 是否启用内存分析
+	EnableMemoryProfiling bool `json:"enable_memory_profiling"`
+	
+	// 是否启用详细统计
+	DetailedStats bool `json:"detailed_stats"`
 }
 
 // JSONPathConfig JSONPath配置
+// JSONPathConfig represents JSONPath configuration
 type JSONPathConfig struct {
-	CacheSize       int           `json:"cache_size"`       // 缓存大小
-	CacheTTL        time.Duration `json:"cache_ttl"`        // 缓存TTL
-	MaxComplexity   int           `json:"max_complexity"`   // 最大复杂度
-	EnableOptimizer bool          `json:"enable_optimizer"` // 启用优化器
-	ParallelQuery   bool          `json:"parallel_query"`   // 并行查询
-	MaxWorkers      int           `json:"max_workers"`      // 最大工作协程数
+	// 最大查询深度
+	MaxQueryDepth int `json:"max_query_depth"`
+	
+	// 是否启用缓存
+	EnableCache bool `json:"enable_cache"`
+	
+	// 缓存大小
+	CacheSize int `json:"cache_size"`
+	
+	// 缓存TTL
+	CacheTTL time.Duration `json:"cache_ttl"`
 }
 
-// 全局配置实例
-var globalConfig *Config
-
 // DefaultConfig 返回默认配置
+// DefaultConfig returns the default configuration
 func DefaultConfig() *Config {
 	return &Config{
 		Parser: ParserConfig{
-			MaxDepth:        64,
-			AllowComments:   false,
-			AllowTrailing:   false,
-			StrictMode:      true,
-			ValidateUTF8:    true,
-			BufferSize:      4096,
-			EnableStreaming: false,
+			MaxNestingDepth:     MaxNestingDepth,
+			BufferSize:          DefaultParserBufferSize,
+			AllowComments:       false,
+			AllowTrailingCommas: false,
+			StrictMode:          true,
 		},
 		Serializer: SerializerConfig{
-			Indent:          "  ",
-			EscapeHTML:      true,
-			SortKeys:        false,
-			CompactOutput:   false,
-			BufferSize:      4096,
-			EnableStreaming: false,
+			DefaultIndent: DefaultIndent,
+			EscapeHTML:    true,
+			SortKeys:      false,
+			MaxDepth:      MaxNestingDepth,
+			CompactMode:   false,
 		},
 		ObjectPool: ObjectPoolConfig{
-			InitialSize:     10,
-			MaxSize:         1000,
+			Enabled:         true,
+			MaxPoolSize:     1000,
 			CleanupInterval: 5 * time.Minute,
-			EnableStats:     true,
-			AutoResize:      true,
 			MaxIdleTime:     10 * time.Minute,
+			PreallocateSize: 10,
 		},
 		Performance: PerformanceConfig{
-			EnableMonitoring: false,
-			SampleRate:       1.0,
-			MetricsInterval:  time.Minute,
-			EnableMemStats:   false,
-			EnableCPUProfile: false,
-			LogSlowOps:       false,
-			SlowOpThreshold:  100 * time.Millisecond,
+			Enabled:               false,
+			MaxSnapshots:          DefaultMaxSnapshots,
+			SnapshotInterval:      DefaultSnapshotInterval,
+			EnableMemoryProfiling: false,
+			DetailedStats:         false,
 		},
 		JSONPath: JSONPathConfig{
-			CacheSize:       100,
-			CacheTTL:        time.Hour,
-			MaxComplexity:   1000,
-			EnableOptimizer: true,
-			ParallelQuery:   false,
-			MaxWorkers:      4,
+			MaxQueryDepth: MaxNestingDepth,
+			EnableCache:   true,
+			CacheSize:     100,
+			CacheTTL:      30 * time.Minute,
 		},
 	}
 }
 
 // ProductionConfig 返回生产环境配置
+// ProductionConfig returns production environment configuration
 func ProductionConfig() *Config {
 	config := DefaultConfig()
+	
+	// 生产环境优化
 	config.Parser.StrictMode = true
-	config.Parser.ValidateUTF8 = true
-	config.Serializer.EscapeHTML = true
-	config.ObjectPool.MaxSize = 10000
-	config.Performance.EnableMonitoring = true
-	config.Performance.LogSlowOps = true
-	config.JSONPath.EnableOptimizer = true
-	config.JSONPath.ParallelQuery = true
+	config.Serializer.CompactMode = true
+	config.Serializer.SortKeys = true
+	config.ObjectPool.Enabled = true
+	config.ObjectPool.MaxPoolSize = 2000
+	config.ObjectPool.PreallocateSize = 50
+	config.Performance.Enabled = true
+	config.Performance.DetailedStats = false
+	config.JSONPath.EnableCache = true
+	config.JSONPath.CacheSize = 500
+	
 	return config
 }
 
 // DevelopmentConfig 返回开发环境配置
+// DevelopmentConfig returns development environment configuration
 func DevelopmentConfig() *Config {
 	config := DefaultConfig()
+	
+	// 开发环境优化
 	config.Parser.AllowComments = true
-	config.Parser.AllowTrailing = true
+	config.Parser.AllowTrailingCommas = true
 	config.Parser.StrictMode = false
-	config.Serializer.SortKeys = true
-	config.Performance.EnableMonitoring = true
-	config.Performance.EnableMemStats = true
-	config.Performance.LogSlowOps = true
-	config.Performance.SlowOpThreshold = 50 * time.Millisecond
+	config.Serializer.CompactMode = false
+	config.Serializer.DefaultIndent = "  "
+	config.Performance.Enabled = true
+	config.Performance.DetailedStats = true
+	config.Performance.EnableMemoryProfiling = true
+	
 	return config
 }
 
 // HighPerformanceConfig 返回高性能配置
+// HighPerformanceConfig returns high performance configuration
 func HighPerformanceConfig() *Config {
 	config := DefaultConfig()
-	config.Parser.BufferSize = 8192
-	config.Parser.EnableStreaming = true
-	config.Serializer.BufferSize = 8192
-	config.Serializer.CompactOutput = true
-	config.Serializer.EnableStreaming = true
-	config.ObjectPool.InitialSize = 100
-	config.ObjectPool.MaxSize = 50000
-	config.ObjectPool.CleanupInterval = time.Minute
-	config.Performance.EnableMonitoring = true
-	config.Performance.SampleRate = 0.1
+	
+	// 高性能优化
+	config.Parser.BufferSize = DefaultParserBufferSize * 2
+	config.Serializer.CompactMode = true
+	config.Serializer.EscapeHTML = false
+	config.ObjectPool.Enabled = true
+	config.ObjectPool.MaxPoolSize = 5000
+	config.ObjectPool.PreallocateSize = 100
+	config.ObjectPool.CleanupInterval = 1 * time.Minute
+	config.Performance.Enabled = false // 关闭监控以获得最佳性能
+	config.JSONPath.EnableCache = true
 	config.JSONPath.CacheSize = 1000
-	config.JSONPath.EnableOptimizer = true
-	config.JSONPath.ParallelQuery = true
-	config.JSONPath.MaxWorkers = 8
+	
 	return config
 }
 
+// 全局配置实例
+// Global configuration instance
+var globalConfig *Config = DefaultConfig()
+
 // SetGlobalConfig 设置全局配置
+// SetGlobalConfig sets the global configuration
 func SetGlobalConfig(config *Config) {
+	if config == nil {
+		return
+	}
 	globalConfig = config
+	
+	// 应用配置到各个组件
+	applyConfigToComponents(config)
 }
 
 // GetGlobalConfig 获取全局配置
+// GetGlobalConfig gets the global configuration
 func GetGlobalConfig() *Config {
-	if globalConfig == nil {
-		globalConfig = DefaultConfig()
-	}
 	return globalConfig
 }
 
-// LoadConfigFromEnv 从环境变量加载配置
-func LoadConfigFromEnv() *Config {
+// applyConfigToComponents 将配置应用到各个组件
+// applyConfigToComponents applies configuration to components
+func applyConfigToComponents(config *Config) {
+	// 应用性能监控配置
+	if config.Performance.Enabled {
+		EnablePerformanceMonitoring()
+	} else {
+		DisablePerformanceMonitoring()
+	}
+	
+	// 应用内存分析配置
+	if config.Performance.EnableMemoryProfiling {
+		StartMemoryProfiling()
+	} else {
+		StopMemoryProfiling()
+	}
+}
+
+// LoadConfigFromEnvironment 从环境变量加载配置
+// LoadConfigFromEnvironment loads configuration from environment variables
+func LoadConfigFromEnvironment() *Config {
 	config := DefaultConfig()
-
-	// 解析器配置
-	if val := os.Getenv("XYJSON_MAX_DEPTH"); val != "" {
-		if depth, err := strconv.Atoi(val); err == nil {
-			config.Parser.MaxDepth = depth
-		}
-	}
-	if val := os.Getenv("XYJSON_ALLOW_COMMENTS"); val != "" {
-		config.Parser.AllowComments = val == "true"
-	}
-	if val := os.Getenv("XYJSON_STRICT_MODE"); val != "" {
-		config.Parser.StrictMode = val == "true"
-	}
-
-	// 对象池配置
-	if val := os.Getenv("XYJSON_POOL_SIZE"); val != "" {
-		if size, err := strconv.Atoi(val); err == nil {
-			config.ObjectPool.MaxSize = size
-		}
-	}
-
-	// 性能配置
-	if val := os.Getenv("XYJSON_ENABLE_MONITORING"); val != "" {
-		config.Performance.EnableMonitoring = val == "true"
-	}
-	if val := os.Getenv("XYJSON_SAMPLE_RATE"); val != "" {
-		if rate, err := strconv.ParseFloat(val, 64); err == nil {
-			config.Performance.SampleRate = rate
-		}
-	}
-
-	// JSONPath配置
-	if val := os.Getenv("XYJSON_CACHE_SIZE"); val != "" {
-		if size, err := strconv.Atoi(val); err == nil {
-			config.JSONPath.CacheSize = size
-		}
-	}
-
+	
+	// 这里可以添加从环境变量读取配置的逻辑
+	// 例如：
+	// if env := os.Getenv("XYJSON_PARSER_MAX_DEPTH"); env != "" {
+	//     if depth, err := strconv.Atoi(env); err == nil {
+	//         config.Parser.MaxNestingDepth = depth
+	//     }
+	// }
+	
 	return config
 }
 
-// ValidateConfig 验证配置
+// ValidateConfig 验证配置的有效性
+// ValidateConfig validates the configuration
 func ValidateConfig(config *Config) error {
-	if config.Parser.MaxDepth <= 0 {
-		return NewConfigError("parser.max_depth must be positive")
+	if config == nil {
+		return NewInvalidOperationError("config validation", "config cannot be nil")
+	}
+	
+	// 验证解析器配置
+	if config.Parser.MaxNestingDepth <= 0 {
+		return NewInvalidOperationError("config validation", "parser max nesting depth must be positive")
 	}
 	if config.Parser.BufferSize <= 0 {
-		return NewConfigError("parser.buffer_size must be positive")
+		return NewInvalidOperationError("config validation", "parser buffer size must be positive")
 	}
-	if config.ObjectPool.MaxSize < config.ObjectPool.InitialSize {
-		return NewConfigError("object_pool.max_size must be >= initial_size")
+	
+	// 验证序列化器配置
+	if config.Serializer.MaxDepth <= 0 {
+		return NewInvalidOperationError("config validation", "serializer max depth must be positive")
 	}
-	if config.Performance.SampleRate < 0 || config.Performance.SampleRate > 1 {
-		return NewConfigError("performance.sample_rate must be between 0 and 1")
+	
+	// 验证对象池配置
+	if config.ObjectPool.MaxPoolSize < 0 {
+		return NewInvalidOperationError("config validation", "object pool max size cannot be negative")
+	}
+	if config.ObjectPool.CleanupInterval < 0 {
+		return NewInvalidOperationError("config validation", "object pool cleanup interval cannot be negative")
+	}
+	
+	// 验证性能配置
+	if config.Performance.MaxSnapshots < 0 {
+		return NewInvalidOperationError("config validation", "performance max snapshots cannot be negative")
+	}
+	if config.Performance.SnapshotInterval < 0 {
+		return NewInvalidOperationError("config validation", "performance snapshot interval cannot be negative")
+	}
+	
+	// 验证JSONPath配置
+	if config.JSONPath.MaxQueryDepth <= 0 {
+		return NewInvalidOperationError("config validation", "jsonpath max query depth must be positive")
 	}
 	if config.JSONPath.CacheSize < 0 {
-		return NewConfigError("json_path.cache_size must be non-negative")
+		return NewInvalidOperationError("config validation", "jsonpath cache size cannot be negative")
 	}
+	
 	return nil
 }
 
 // OptimizeForUseCase 根据使用场景优化配置
+// OptimizeForUseCase optimizes configuration for specific use cases
 func OptimizeForUseCase(useCase string) *Config {
 	switch useCase {
-	case "web_api":
-		config := DefaultConfig()
-		config.Parser.BufferSize = 2048
-		config.Serializer.CompactOutput = true
-		config.ObjectPool.MaxSize = 5000
-		config.Performance.EnableMonitoring = true
-		return config
-
-	case "data_processing":
-		config := HighPerformanceConfig()
-		config.Parser.EnableStreaming = true
-		config.Serializer.EnableStreaming = true
-		config.JSONPath.ParallelQuery = true
-		return config
-
+	case "web-api":
+		return ProductionConfig()
+	case "data-processing":
+		return HighPerformanceConfig()
+	case "development":
+		return DevelopmentConfig()
 	case "embedded":
 		config := DefaultConfig()
-		config.ObjectPool.MaxSize = 100
-		config.Performance.EnableMonitoring = false
-		config.JSONPath.CacheSize = 10
+		config.ObjectPool.MaxPoolSize = 100
+		config.Performance.Enabled = false
+		config.JSONPath.EnableCache = false
 		return config
-
-	case "testing":
-		return DevelopmentConfig()
-
 	default:
 		return DefaultConfig()
 	}
-}
-
-// ConfigError 配置错误
-type ConfigError struct {
-	Message string
-}
-
-func (e *ConfigError) Error() string {
-	return "config error: " + e.Message
-}
-
-// NewConfigError 创建配置错误
-func NewConfigError(message string) *ConfigError {
-	return &ConfigError{Message: message}
 }
