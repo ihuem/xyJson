@@ -226,4 +226,8 @@ Thanks to all developers who contributed to xyJson 1.0.0!
 
 **æ³¨æ„**: æ­¤æ›´æ–°æ—¥å¿—éµå¾ª [Keep a Changelog](https://keepachangelog.com/) æ ¼å¼ã€‚
 
-**Note**: This changelog follows the [Keep a Changelog](https://keepachangelog.com/) format.
+**Note**: This changelog follows the [Keep a Changelog](https://keepachangelog.com/) format.# #   [ 1 . 0 . 0 ]   -   2 0 2 4 - 0 1 - 1 5  
+ # # #   A d d e d  
+ -   J S O N P a t h „˜Ñ‹ŸRı€ 
+ -   '`ı€OSÿ5 8 % ĞcGS	ÿ 
+ 
