@@ -386,7 +386,7 @@ func (p *parser) parseArray() (IValue, error) {
 			return nil, err
 		}
 
-		if err := arr.(IArray).Append(value); err != nil {
+		if err := arr.Append(value); err != nil {
 			return nil, err
 		}
 
