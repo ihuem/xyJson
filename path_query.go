@@ -46,8 +46,8 @@ type CompiledPath struct {
 // pathCache 路径缓存
 // pathCache caches compiled paths
 type pathCache struct {
-	cache map[string]*CompiledPath
-	mu    sync.RWMutex
+	cache   map[string]*CompiledPath
+	mu      sync.RWMutex
 	maxSize int
 }
 
@@ -222,7 +222,7 @@ func CompilePathWithFactory(path string, factory IValueFactory) (*CompiledPath, 
 	// 处理特殊情况：空路径或根路径
 	var segments []*pathSegment
 	var err error
-	
+
 	if path == "" {
 		// 空路径被视为根路径
 		segments = []*pathSegment{}

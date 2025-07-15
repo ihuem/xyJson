@@ -1027,8 +1027,9 @@ func GetBoolWithDefault(root IValue, path string, defaultValue bool) bool {
 //   - IObject: 对象值或默认值 / Object value or default value
 //
 // 注意 Note:
-//   当defaultValue为nil时，返回一个空的对象，而不是Go的nil
-//   When defaultValue is nil, returns an empty object instead of Go nil
+//
+//	当defaultValue为nil时，返回一个空的对象，而不是Go的nil
+//	When defaultValue is nil, returns an empty object instead of Go nil
 func GetObjectWithDefault(root IValue, path string, defaultValue IObject) IObject {
 	if result, ok := TryGetObject(root, path); ok {
 		return result
@@ -1053,8 +1054,9 @@ func GetObjectWithDefault(root IValue, path string, defaultValue IObject) IObjec
 //   - IArray: 数组值或默认值 / Array value or default value
 //
 // 注意 Note:
-//   当defaultValue为nil时，返回一个空的数组，而不是Go的nil
-//   When defaultValue is nil, returns an empty array instead of Go nil
+//
+//	当defaultValue为nil时，返回一个空的数组，而不是Go的nil
+//	When defaultValue is nil, returns an empty array instead of Go nil
 func GetArrayWithDefault(root IValue, path string, defaultValue IArray) IArray {
 	if result, ok := TryGetArray(root, path); ok {
 		return result
