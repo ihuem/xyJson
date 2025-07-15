@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // pathQuery JSONPath查询实现
@@ -31,6 +32,30 @@ type pathFilter struct {
 	Operator   string
 	Value      interface{}
 	Compiled   *regexp.Regexp
+}
+
+// CompiledPath 预编译的JSONPath路径
+// CompiledPath represents a pre-compiled JSONPath
+type CompiledPath struct {
+	originalPath string
+	segments     []*pathSegment
+	factory      IValueFactory
+	mu           sync.RWMutex
+}
+
+// pathCache 路径缓存
+// pathCache caches compiled paths
+type pathCache struct {
+	cache map[string]*CompiledPath
+	mu    sync.RWMutex
+	maxSize int
+}
+
+// 全局路径缓存实例
+// Global path cache instance
+var globalPathCache = &pathCache{
+	cache:   make(map[string]*CompiledPath),
+	maxSize: DefaultPathCacheSize,
 }
 
 // NewPathQuery 创建新的JSONPath查询器
@@ -173,6 +198,217 @@ func (pq *pathQuery) Count(root IValue, path string) int {
 	return len(results)
 }
 
+// CompilePath 预编译JSONPath路径
+// CompilePath pre-compiles a JSONPath for better performance
+func CompilePath(path string) (*CompiledPath, error) {
+	return CompilePathWithFactory(path, nil)
+}
+
+// CompilePathWithFactory 使用指定工厂预编译JSONPath路径
+// CompilePathWithFactory pre-compiles a JSONPath with specified factory
+func CompilePathWithFactory(path string, factory IValueFactory) (*CompiledPath, error) {
+	if factory == nil {
+		factory = NewValueFactory()
+	}
+
+	// 检查缓存
+	globalPathCache.mu.RLock()
+	if cached, exists := globalPathCache.cache[path]; exists {
+		globalPathCache.mu.RUnlock()
+		return cached, nil
+	}
+	globalPathCache.mu.RUnlock()
+
+	// 处理特殊情况：空路径或根路径
+	var segments []*pathSegment
+	var err error
+	
+	if path == "" {
+		// 空路径被视为根路径
+		segments = []*pathSegment{}
+	} else {
+		// 创建临时查询器来解析路径
+		pq := &pathQuery{factory: factory}
+		segments, err = pq.parsePath(path)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// 创建预编译路径
+	compiled := &CompiledPath{
+		originalPath: path,
+		segments:     segments,
+		factory:      factory,
+	}
+
+	// 添加到缓存
+	globalPathCache.mu.Lock()
+	defer globalPathCache.mu.Unlock()
+
+	// 检查缓存大小限制
+	if len(globalPathCache.cache) >= globalPathCache.maxSize {
+		// 简单的LRU策略：清空一半缓存
+		for k := range globalPathCache.cache {
+			delete(globalPathCache.cache, k)
+			if len(globalPathCache.cache) <= globalPathCache.maxSize/2 {
+				break
+			}
+		}
+	}
+
+	globalPathCache.cache[path] = compiled
+	return compiled, nil
+}
+
+// Query 使用预编译路径查询单个值
+// Query queries a single value using the compiled path
+func (cp *CompiledPath) Query(root IValue) (IValue, error) {
+	if root == nil {
+		return nil, NewPathNotFoundError(cp.originalPath)
+	}
+
+	if cp.originalPath == "" || cp.originalPath == "$" {
+		return root, nil
+	}
+
+	cp.mu.RLock()
+	defer cp.mu.RUnlock()
+
+	pq := &pathQuery{factory: cp.factory}
+	results := pq.executeQuery(root, cp.segments, false)
+	if len(results) == 0 {
+		return nil, NewPathNotFoundError(cp.originalPath)
+	}
+
+	return results[0], nil
+}
+
+// QueryAll 使用预编译路径查询所有匹配的值
+// QueryAll queries all matching values using the compiled path
+func (cp *CompiledPath) QueryAll(root IValue) ([]IValue, error) {
+	if root == nil {
+		return nil, NewPathNotFoundError(cp.originalPath)
+	}
+
+	if cp.originalPath == "" || cp.originalPath == "$" {
+		return []IValue{root}, nil
+	}
+
+	cp.mu.RLock()
+	defer cp.mu.RUnlock()
+
+	pq := &pathQuery{factory: cp.factory}
+	return pq.executeQuery(root, cp.segments, true), nil
+}
+
+// Set 使用预编译路径设置值
+// Set sets a value using the compiled path
+func (cp *CompiledPath) Set(root IValue, value IValue) error {
+	if root == nil {
+		return NewPathNotFoundError(cp.originalPath)
+	}
+
+	if cp.originalPath == "" || cp.originalPath == "$" {
+		return NewInvalidJSONError("cannot set root value", nil)
+	}
+
+	cp.mu.RLock()
+	defer cp.mu.RUnlock()
+
+	pq := &pathQuery{factory: cp.factory}
+	return pq.setValueAtPath(root, cp.segments, value)
+}
+
+// Delete 使用预编译路径删除值
+// Delete deletes a value using the compiled path
+func (cp *CompiledPath) Delete(root IValue) error {
+	if root == nil {
+		return NewPathNotFoundError(cp.originalPath)
+	}
+
+	if cp.originalPath == "" || cp.originalPath == "$" {
+		return NewInvalidJSONError("cannot delete root value", nil)
+	}
+
+	cp.mu.RLock()
+	defer cp.mu.RUnlock()
+
+	pq := &pathQuery{factory: cp.factory}
+	return pq.deleteValueAtPath(root, cp.segments)
+}
+
+// Exists 使用预编译路径检查值是否存在
+// Exists checks if a value exists using the compiled path
+func (cp *CompiledPath) Exists(root IValue) bool {
+	if root == nil {
+		return false
+	}
+
+	if cp.originalPath == "" || cp.originalPath == "$" {
+		return true
+	}
+
+	cp.mu.RLock()
+	defer cp.mu.RUnlock()
+
+	pq := &pathQuery{factory: cp.factory}
+	results := pq.executeQuery(root, cp.segments, false)
+	return len(results) > 0
+}
+
+// Count 使用预编译路径统计匹配的数量
+// Count counts matching values using the compiled path
+func (cp *CompiledPath) Count(root IValue) int {
+	if root == nil {
+		return 0
+	}
+
+	if cp.originalPath == "" || cp.originalPath == "$" {
+		return 1
+	}
+
+	cp.mu.RLock()
+	defer cp.mu.RUnlock()
+
+	pq := &pathQuery{factory: cp.factory}
+	results := pq.executeQuery(root, cp.segments, true)
+	return len(results)
+}
+
+// Path 返回原始路径字符串
+// Path returns the original path string
+func (cp *CompiledPath) Path() string {
+	return cp.originalPath
+}
+
+// ClearPathCache 清空路径缓存
+// ClearPathCache clears the path cache
+func ClearPathCache() {
+	globalPathCache.mu.Lock()
+	defer globalPathCache.mu.Unlock()
+	globalPathCache.cache = make(map[string]*CompiledPath)
+}
+
+// GetPathCacheStats 获取路径缓存统计信息
+// GetPathCacheStats returns path cache statistics
+func GetPathCacheStats() (size int, maxSize int) {
+	globalPathCache.mu.RLock()
+	defer globalPathCache.mu.RUnlock()
+	return len(globalPathCache.cache), globalPathCache.maxSize
+}
+
+// SetPathCacheMaxSize 设置路径缓存最大大小
+// SetPathCacheMaxSize sets the maximum size of path cache
+func SetPathCacheMaxSize(maxSize int) {
+	if maxSize <= 0 {
+		maxSize = DefaultPathCacheSize
+	}
+	globalPathCache.mu.Lock()
+	defer globalPathCache.mu.Unlock()
+	globalPathCache.maxSize = maxSize
+}
+
 // parsePath 解析JSONPath路径
 // parsePath parses a JSONPath string
 func (pq *pathQuery) parsePath(path string) ([]*pathSegment, error) {
@@ -198,10 +434,40 @@ func (pq *pathQuery) parsePath(path string) ([]*pathSegment, error) {
 			// 处理递归下降 '..'
 			if i < len(path) && path[i] == '.' {
 				i++ // 跳过第二个 '.'
-				segments = append(segments, &pathSegment{
-					Type:      PropertySegmentType,
-					Recursive: true,
-				})
+
+				// 检查后面是否有属性名或通配符
+				if i < len(path) {
+					if path[i] == '*' {
+						// $..* 递归通配符
+						i++
+						segments = append(segments, &pathSegment{
+							Type:      PropertySegmentType,
+							Recursive: true,
+							Wildcard:  true,
+						})
+					} else {
+						// $..property 递归属性查找
+						start := i
+						for i < len(path) && path[i] != '.' && path[i] != '[' {
+							i++
+						}
+						if i > start {
+							key := path[start:i]
+							segments = append(segments, &pathSegment{
+								Type:      PropertySegmentType,
+								Key:       key,
+								Recursive: true,
+							})
+						}
+					}
+				} else {
+					// 只有 $..
+					segments = append(segments, &pathSegment{
+						Type:      PropertySegmentType,
+						Recursive: true,
+						Wildcard:  true,
+					})
+				}
 				continue
 			}
 
@@ -318,6 +584,13 @@ func (pq *pathQuery) parseBracketExpression(path string, start int) (*pathSegmen
 // parseFilter 解析过滤器表达式
 // parseFilter parses filter expressions
 func (pq *pathQuery) parseFilter(expr string) (*pathFilter, error) {
+	// 移除外层括号（如果存在）
+	expr = strings.TrimSpace(expr)
+	if strings.HasPrefix(expr, "(") && strings.HasSuffix(expr, ")") {
+		expr = expr[1 : len(expr)-1]
+		expr = strings.TrimSpace(expr)
+	}
+
 	// 简化的过滤器解析
 	// 支持基本的比较操作：==, !=, <, >, <=, >=
 	operators := []string{"==", "!=", "<=", ">=", "<", ">"}
@@ -373,25 +646,23 @@ func (pq *pathQuery) executeQuery(root IValue, segments []*pathSegment, selectAl
 				continue
 			}
 
-			switch segment.Type {
-			case PropertySegmentType:
-				next = append(next, pq.selectProperty(value, segment, selectAll)...)
-			case IndexSegmentType:
-				next = append(next, pq.selectIndex(value, segment, selectAll)...)
-			case FilterSegmentType:
-				next = append(next, pq.selectFilter(value, segment, selectAll)...)
-			}
-
-			// 递归下降
+			// 如果是递归下降，直接调用selectRecursive
 			if segment.Recursive {
 				next = append(next, pq.selectRecursive(value, segment, selectAll)...)
+			} else {
+				// 普通的路径段处理
+				switch segment.Type {
+				case PropertySegmentType:
+					next = append(next, pq.selectProperty(value, segment, selectAll)...)
+				case IndexSegmentType:
+					next = append(next, pq.selectIndex(value, segment, selectAll)...)
+				case FilterSegmentType:
+					next = append(next, pq.selectFilter(value, segment, selectAll)...)
+				}
 			}
 		}
 
 		current = next
-		if !selectAll && len(current) > 0 {
-			break
-		}
 	}
 
 	return current
@@ -501,11 +772,48 @@ func (pq *pathQuery) selectFilter(value IValue, segment *pathSegment, selectAll 
 func (pq *pathQuery) selectRecursive(value IValue, segment *pathSegment, selectAll bool) []IValue {
 	var results []IValue
 
+	// 首先检查当前节点是否匹配
+	if segment.Key != "" {
+		// 如果是对象，检查是否有指定的属性
+		if obj, ok := value.(IObject); ok {
+			if val := obj.Get(segment.Key); val != nil {
+				results = append(results, val)
+				if !selectAll {
+					return results
+				}
+			}
+		}
+	} else if segment.Wildcard {
+		// 通配符匹配所有直接子元素
+		switch v := value.(type) {
+		case IObject:
+			for _, key := range v.Keys() {
+				if val := v.Get(key); val != nil {
+					results = append(results, val)
+					if !selectAll {
+						return results
+					}
+				}
+			}
+		case IArray:
+			for i := 0; i < v.Length(); i++ {
+				if val := v.Get(i); val != nil {
+					results = append(results, val)
+					if !selectAll {
+						return results
+					}
+				}
+			}
+		}
+	}
+
+	// 然后递归检查所有子节点
 	switch v := value.(type) {
 	case IObject:
 		for _, key := range v.Keys() {
 			if val := v.Get(key); val != nil {
-				results = append(results, pq.selectRecursive(val, segment, selectAll)...)
+				childResults := pq.selectRecursive(val, segment, selectAll)
+				results = append(results, childResults...)
 				if !selectAll && len(results) > 0 {
 					break
 				}
@@ -514,7 +822,8 @@ func (pq *pathQuery) selectRecursive(value IValue, segment *pathSegment, selectA
 	case IArray:
 		for i := 0; i < v.Length(); i++ {
 			if val := v.Get(i); val != nil {
-				results = append(results, pq.selectRecursive(val, segment, selectAll)...)
+				childResults := pq.selectRecursive(val, segment, selectAll)
+				results = append(results, childResults...)
 				if !selectAll && len(results) > 0 {
 					break
 				}
@@ -537,8 +846,16 @@ func (pq *pathQuery) evaluateFilter(value IValue, filter *pathFilter) bool {
 	if filter.Expression == "@" {
 		// 当前值
 		compareValue = value.Raw()
+	} else if strings.HasPrefix(filter.Expression, "@.") {
+		// @.property 形式的属性访问
+		propertyName := filter.Expression[2:] // 移除 "@." 前缀
+		if obj, ok := value.(IObject); ok {
+			if val := obj.Get(propertyName); val != nil {
+				compareValue = val.Raw()
+			}
+		}
 	} else {
-		// 属性值
+		// 直接属性名
 		if obj, ok := value.(IObject); ok {
 			if val := obj.Get(filter.Expression); val != nil {
 				compareValue = val.Raw()
@@ -792,7 +1109,9 @@ func (pq *pathQuery) deleteFinalValue(parent IValue, segment *pathSegment) error
 	switch segment.Type {
 	case PropertySegmentType:
 		if obj, ok := parent.(IObject); ok {
-			obj.Delete(segment.Key)
+			if !obj.Delete(segment.Key) {
+				return NewPathNotFoundError("property '" + segment.Key + "' not found")
+			}
 			return nil
 		}
 		return NewTypeMismatchError(ObjectValueType, parent.Type(), "")

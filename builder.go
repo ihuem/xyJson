@@ -80,11 +80,7 @@ func (b *JSONBuilder) SetInt(key string, value int) *JSONBuilder {
 	}
 
 	if obj, ok := b.current.(IObject); ok {
-		numValue, err := b.factory.CreateNumber(value)
-		if err != nil {
-			b.err = err
-			return b
-		}
+		numValue := b.factory.CreateNumber(value)
 		if err := obj.Set(key, numValue); err != nil {
 			b.err = err
 		}
@@ -102,11 +98,7 @@ func (b *JSONBuilder) SetInt64(key string, value int64) *JSONBuilder {
 	}
 
 	if obj, ok := b.current.(IObject); ok {
-		numValue, err := b.factory.CreateNumber(value)
-		if err != nil {
-			b.err = err
-			return b
-		}
+		numValue := b.factory.CreateNumber(value)
 		if err := obj.Set(key, numValue); err != nil {
 			b.err = err
 		}
@@ -124,11 +116,7 @@ func (b *JSONBuilder) SetFloat64(key string, value float64) *JSONBuilder {
 	}
 
 	if obj, ok := b.current.(IObject); ok {
-		numValue, err := b.factory.CreateNumber(value)
-		if err != nil {
-			b.err = err
-			return b
-		}
+		numValue := b.factory.CreateNumber(value)
 		if err := obj.Set(key, numValue); err != nil {
 			b.err = err
 		}
@@ -146,11 +134,8 @@ func (b *JSONBuilder) SetNumber(key string, value interface{}) *JSONBuilder {
 	}
 
 	if obj, ok := b.current.(IObject); ok {
-		numValue, err := b.factory.CreateNumber(value)
-		if err != nil {
-			b.err = err
-			return b
-		}
+		numValue := b.factory.CreateNumber(value)
+
 		if err := obj.Set(key, numValue); err != nil {
 			b.err = err
 		}
@@ -259,11 +244,7 @@ func (b *JSONBuilder) AddInt(value int) *JSONBuilder {
 	}
 
 	if arr, ok := b.current.(IArray); ok {
-		numValue, err := b.factory.CreateNumber(value)
-		if err != nil {
-			b.err = err
-			return b
-		}
+		numValue := b.factory.CreateNumber(value)
 		if err := arr.Append(numValue); err != nil {
 			b.err = err
 		}

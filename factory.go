@@ -65,9 +65,12 @@ func (f *valueFactory) CreateString(s string) IScalarValue {
 
 // CreateNumber 创建数字值
 // CreateNumber creates a number value
-func (f *valueFactory) CreateNumber(n interface{}) (IScalarValue, error) {
+func (f *valueFactory) CreateNumber(n interface{}) IScalarValue {
 	if n == nil {
-		return nil, NewInvalidOperationError("create number", "input cannot be nil")
+		return &scalarValue{
+			valueType: NumberValueType,
+			rawData:   int64(0),
+		}
 	}
 
 	switch v := n.(type) {
@@ -75,86 +78,92 @@ func (f *valueFactory) CreateNumber(n interface{}) (IScalarValue, error) {
 		return &scalarValue{
 			valueType: NumberValueType,
 			rawData:   int64(v),
-		}, nil
+		}
 	case int8:
 		return &scalarValue{
 			valueType: NumberValueType,
 			rawData:   int64(v),
-		}, nil
+		}
 	case int16:
 		return &scalarValue{
 			valueType: NumberValueType,
 			rawData:   int64(v),
-		}, nil
+		}
 	case int32:
 		return &scalarValue{
 			valueType: NumberValueType,
 			rawData:   int64(v),
-		}, nil
+		}
 	case int64:
 		return &scalarValue{
 			valueType: NumberValueType,
 			rawData:   v,
-		}, nil
+		}
 	case uint:
 		return &scalarValue{
 			valueType: NumberValueType,
 			rawData:   int64(v),
-		}, nil
+		}
 	case uint8:
 		return &scalarValue{
 			valueType: NumberValueType,
 			rawData:   int64(v),
-		}, nil
+		}
 	case uint16:
 		return &scalarValue{
 			valueType: NumberValueType,
 			rawData:   int64(v),
-		}, nil
+		}
 	case uint32:
 		return &scalarValue{
 			valueType: NumberValueType,
 			rawData:   int64(v),
-		}, nil
+		}
 	case uint64:
 		// 检查是否超出int64范围
 		if v > 9223372036854775807 {
 			return &scalarValue{
 				valueType: NumberValueType,
 				rawData:   float64(v),
-			}, nil
+			}
 		}
 		return &scalarValue{
 			valueType: NumberValueType,
 			rawData:   int64(v),
-		}, nil
+		}
 	case float32:
 		return &scalarValue{
 			valueType: NumberValueType,
 			rawData:   float64(v),
-		}, nil
+		}
 	case float64:
 		return &scalarValue{
 			valueType: NumberValueType,
 			rawData:   v,
-		}, nil
+		}
 	case string:
 		// 尝试解析字符串为数字
 		if i, err := strconv.ParseInt(v, 10, 64); err == nil {
 			return &scalarValue{
 				valueType: NumberValueType,
 				rawData:   i,
-			}, nil
+			}
 		}
 		if f, err := strconv.ParseFloat(v, 64); err == nil {
 			return &scalarValue{
 				valueType: NumberValueType,
 				rawData:   f,
-			}, nil
+			}
 		}
-		return nil, NewInvalidOperationError("create number", fmt.Sprintf("cannot parse '%s' as number", v))
+		return &scalarValue{
+			valueType: NumberValueType,
+			rawData:   int64(0),
+		}
 	default:
-		return nil, NewInvalidOperationError("create number", fmt.Sprintf("unsupported type: %T", n))
+		return &scalarValue{
+			valueType: NumberValueType,
+			rawData:   int64(0),
+		}
 	}
 }
 
@@ -175,6 +184,7 @@ func (f *valueFactory) CreateObject() IObject {
 			return obj
 		}
 	}
+
 	return NewObjectValue().(IObject)
 }
 
@@ -202,7 +212,7 @@ func (f *valueFactory) CreateFromRaw(data interface{}) (IValue, error) {
 	case bool:
 		return f.CreateBool(v), nil
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64:
-		return f.CreateNumber(v)
+		return f.CreateNumber(v), nil
 	case time.Time:
 		return f.CreateString(v.Format(time.RFC3339)), nil
 	case []byte:
@@ -261,11 +271,11 @@ func (f *valueFactory) createFromReflect(rv reflect.Value) (IValue, error) {
 	case reflect.Bool:
 		return f.CreateBool(rv.Bool()), nil
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return f.CreateNumber(rv.Int())
+		return f.CreateNumber(rv.Int()), nil
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return f.CreateNumber(rv.Uint())
+		return f.CreateNumber(rv.Uint()), nil
 	case reflect.Float32, reflect.Float64:
-		return f.CreateNumber(rv.Float())
+		return f.CreateNumber(rv.Float()), nil
 	case reflect.Slice, reflect.Array:
 		arr := f.CreateArray()
 		for i := 0; i < rv.Len(); i++ {

@@ -2,6 +2,7 @@ package xyJson
 
 import (
 	"sync"
+	"time"
 )
 
 // arrayValue JSON数组实现
@@ -427,4 +428,58 @@ func (av *arrayValue) Filter(predicate func(index int, value IValue) bool) IArra
 	}
 
 	return result
+}
+
+// AsString 将值转换为字符串，数组类型返回空字符串
+// AsString converts the value to string, returns empty string for array type
+func (av *arrayValue) AsString() string {
+	return ""
+}
+
+// AsInt 将值转换为整数，数组类型返回0
+// AsInt converts the value to integer, returns 0 for array type
+func (av *arrayValue) AsInt() int {
+	return 0
+}
+
+// AsInt64 将值转换为64位整数，数组类型返回0
+// AsInt64 converts the value to 64-bit integer, returns 0 for array type
+func (av *arrayValue) AsInt64() int64 {
+	return 0
+}
+
+// AsFloat64 将值转换为64位浮点数，数组类型返回0.0
+// AsFloat64 converts the value to 64-bit float, returns 0.0 for array type
+func (av *arrayValue) AsFloat64() float64 {
+	return 0.0
+}
+
+// AsBool 将值转换为布尔值，数组类型返回false
+// AsBool converts the value to boolean, returns false for array type
+func (av *arrayValue) AsBool() bool {
+	return false
+}
+
+// AsBytes 将值转换为字节数组，数组类型返回nil
+// AsBytes converts the value to byte array, returns nil for array type
+func (av *arrayValue) AsBytes() []byte {
+	return nil
+}
+
+// AsTime 将值转换为时间，数组类型返回零时间
+// AsTime converts the value to time, returns zero time for array type
+func (av *arrayValue) AsTime() time.Time {
+	return time.Time{}
+}
+
+// AsObject 将值转换为对象，数组类型返回nil
+// AsObject converts the value to object, returns nil for array type
+func (av *arrayValue) AsObject() IObject {
+	return nil
+}
+
+// AsArray 将值转换为数组，数组类型返回自身
+// AsArray converts the value to array, returns self for array type
+func (av *arrayValue) AsArray() IArray {
+	return av
 }

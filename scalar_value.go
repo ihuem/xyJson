@@ -327,6 +327,100 @@ func (sv *scalarValue) Bytes() ([]byte, error) {
 	return []byte(str), nil
 }
 
+// AsString 将值转换为字符串，转换失败时返回空字符串
+// AsString converts the value to string, returns empty string on conversion failure
+func (sv *scalarValue) AsString() string {
+	if sv.IsNull() {
+		return ""
+	}
+
+	switch sv.valueType {
+	case StringValueType:
+		if str, ok := sv.rawData.(string); ok {
+			return str
+		}
+		return ""
+	case NumberValueType:
+		return sv.numberToString()
+	case BoolValueType:
+		if b, ok := sv.rawData.(bool); ok {
+			if b {
+				return "true"
+			}
+			return "false"
+		}
+		return "false"
+	default:
+		return ""
+	}
+}
+
+// AsInt 将值转换为整数，转换失败时返回0
+// AsInt converts the value to integer, returns 0 on conversion failure
+func (sv *scalarValue) AsInt() int {
+	if result, err := sv.Int(); err == nil {
+		return result
+	}
+	return 0
+}
+
+// AsInt64 将值转换为64位整数，转换失败时返回0
+// AsInt64 converts the value to 64-bit integer, returns 0 on conversion failure
+func (sv *scalarValue) AsInt64() int64 {
+	if result, err := sv.Int64(); err == nil {
+		return result
+	}
+	return 0
+}
+
+// AsFloat64 将值转换为64位浮点数，转换失败时返回0.0
+// AsFloat64 converts the value to 64-bit float, returns 0.0 on conversion failure
+func (sv *scalarValue) AsFloat64() float64 {
+	if result, err := sv.Float64(); err == nil {
+		return result
+	}
+	return 0.0
+}
+
+// AsBool 将值转换为布尔值，转换失败时返回false
+// AsBool converts the value to boolean, returns false on conversion failure
+func (sv *scalarValue) AsBool() bool {
+	if result, err := sv.Bool(); err == nil {
+		return result
+	}
+	return false
+}
+
+// AsBytes 将值转换为字节数组，转换失败时返回nil
+// AsBytes converts the value to byte array, returns nil on conversion failure
+func (sv *scalarValue) AsBytes() []byte {
+	if result, err := sv.Bytes(); err == nil {
+		return result
+	}
+	return nil
+}
+
+// AsTime 将值转换为时间，转换失败时返回零时间
+// AsTime converts the value to time, returns zero time on conversion failure
+func (sv *scalarValue) AsTime() time.Time {
+	if result, err := sv.Time(); err == nil {
+		return result
+	}
+	return time.Time{}
+}
+
+// AsObject 将值转换为对象，标量值返回nil
+// AsObject converts the value to object, returns nil for scalar type
+func (sv *scalarValue) AsObject() IObject {
+	return nil
+}
+
+// AsArray 将值转换为数组，标量值返回nil
+// AsArray converts the value to array, returns nil for scalar type
+func (sv *scalarValue) AsArray() IArray {
+	return nil
+}
+
 // numberToString 将数字转换为字符串
 // numberToString converts a number to string
 func (sv *scalarValue) numberToString() string {

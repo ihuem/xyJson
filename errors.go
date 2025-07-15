@@ -9,6 +9,9 @@ import (
 type ErrorCode int
 
 const (
+	// ErrNone 无错误
+	// ErrNone indicates no error
+	ErrNone ErrorCode = iota
 	// ErrInvalidJSON 无效JSON格式
 	// ErrInvalidJSON indicates invalid JSON format
 	ErrInvalidJSON ErrorCode = iota + 1000

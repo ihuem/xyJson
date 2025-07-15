@@ -7,9 +7,6 @@ import (
 	"unicode/utf8"
 )
 
-// DefaultMaxDepth 默认最大解析深度
-const DefaultMaxDepth = 1000
-
 // parser JSON解析器实现
 // parser implements the JSON parser
 type parser struct {
@@ -112,10 +109,6 @@ func (p *parser) reset(data []byte) {
 // parseValue 解析JSON值
 // parseValue parses a JSON value
 func (p *parser) parseValue() (IValue, error) {
-	if p.depth >= p.maxDepth {
-		return nil, NewInvalidJSONError("maximum depth exceeded", nil)
-	}
-
 	p.skipWhitespace()
 
 	if p.pos >= len(p.data) {
@@ -181,32 +174,37 @@ func (p *parser) parseString() (IValue, error) {
 				buf = make([]byte, 0, len(p.data)-start)
 				buf = append(buf, p.data[start:p.pos]...)
 			}
+			// 将转义序列原样添加到缓冲区，稍后由unescapeString处理
+			buf = append(buf, ch) // 添加反斜杠
 			p.advance() // 跳过反斜杠
 			if p.pos >= len(p.data) {
 				return nil, NewInvalidJSONError("unexpected end of input in string escape", nil)
 			}
 			escapeChar := p.data[p.pos]
+			buf = append(buf, escapeChar) // 添加转义字符
+			
+			// 验证转义字符的有效性
 			switch escapeChar {
-			case '"', '\\', '/':
-				buf = append(buf, escapeChar)
-			case 'b':
-				buf = append(buf, '\b')
-			case 'f':
-				buf = append(buf, '\f')
-			case 'n':
-				buf = append(buf, '\n')
-			case 'r':
-				buf = append(buf, '\r')
-			case 't':
-				buf = append(buf, '\t')
+			case '"', '\\', '/', 'b', 'f', 'n', 'r', 't':
+				// 有效的转义字符
 			case 'u':
-				// Unicode转义
-				unicodeBytes, err := p.parseUnicodeEscape()
-				if err != nil {
-					return nil, err
+				// Unicode转义，需要验证后续4个十六进制字符
+				if p.pos+4 >= len(p.data) {
+					return nil, NewInvalidJSONError("incomplete unicode escape", nil)
 				}
-				buf = append(buf, unicodeBytes...)
-				continue // parseUnicodeEscape已经推进了位置
+				p.advance() // 跳过'u'
+				for i := 0; i < 4; i++ {
+					if p.pos >= len(p.data) {
+						return nil, NewInvalidJSONError("incomplete unicode escape", nil)
+					}
+					ch := p.data[p.pos]
+					if !((ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F')) {
+						return nil, NewInvalidJSONError("invalid unicode escape", nil)
+					}
+					buf = append(buf, ch)
+					p.advance()
+				}
+				continue
 			default:
 				return nil, NewInvalidJSONError("invalid escape character: \\"+string(escapeChar), nil)
 			}
@@ -292,6 +290,10 @@ func (p *parser) parseObject() (IValue, error) {
 	p.depth++
 	defer func() { p.depth-- }()
 
+	if p.depth > p.maxDepth {
+		return nil, NewInvalidJSONError("maximum depth exceeded", nil)
+	}
+
 	p.advance() // 跳过 '{'
 	p.skipWhitespace()
 
@@ -326,6 +328,11 @@ func (p *parser) parseObject() (IValue, error) {
 			return nil, NewInvalidJSONError("expected ':'", nil)
 		}
 		p.advance() // 跳过 ':'
+
+		// 检查重复键
+		if obj.Has(key) {
+			return nil, NewInvalidJSONError("duplicate key: "+key, nil)
+		}
 
 		// 解析值
 		value, err := p.parseValue()
@@ -367,6 +374,10 @@ func (p *parser) parseArray() (IValue, error) {
 
 	p.depth++
 	defer func() { p.depth-- }()
+
+	if p.depth > p.maxDepth {
+		return nil, NewInvalidJSONError("maximum depth exceeded", nil)
+	}
 
 	p.advance() // 跳过 '['
 	p.skipWhitespace()
@@ -503,13 +514,13 @@ func (p *parser) parseNumber() (IValue, error) {
 		if err != nil {
 			return nil, NewInvalidJSONError("invalid number: "+numStr, nil)
 		}
-		return p.factory.CreateNumber(val)
+		return p.factory.CreateNumber(val), nil
 	} else {
 		val, err := strconv.ParseInt(numStr, 10, 64)
 		if err != nil {
 			return nil, NewInvalidJSONError("invalid number: "+numStr, nil)
 		}
-		return p.factory.CreateNumber(val)
+		return p.factory.CreateNumber(val), nil
 	}
 }
 
