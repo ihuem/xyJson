@@ -4,31 +4,68 @@ import (
 	"time"
 )
 
-// IValue 基础JSON值接口
-// IValue represents the basic interface for all JSON values
+// IValue 是所有JSON值的基础接口，定义了JSON值的通用操作
+// IValue is the fundamental interface for all JSON values, defining common operations for JSON values
+//
+// 所有JSON值类型（null、string、number、boolean、object、array）都实现此接口
+// All JSON value types (null, string, number, boolean, object, array) implement this interface
+//
+// 使用示例 Usage Example:
+//
+//	value, _ := xyJson.ParseString(`"hello"`)
+//	fmt.Println(value.Type())     // StringType
+//	fmt.Println(value.String())   // "hello"
+//	fmt.Println(value.IsNull())   // false
+//	cloned := value.Clone()       // 创建深拷贝
+//	fmt.Println(value.Equals(cloned)) // true
 type IValue interface {
-	// Type 返回值的类型
-	// Type returns the type of the value
+	// Type 返回JSON值的类型（null、string、number、boolean、object、array）
+	// Type returns the type of the JSON value (null, string, number, boolean, object, array)
+	//
+	// 返回值 Returns:
+	//   - ValueType: 值类型枚举 / Value type enumeration
 	Type() ValueType
 
-	// Raw 返回原始Go类型值，用于json.Marshal
-	// Raw returns the raw Go type value for json.Marshal
+	// Raw 返回对应的Go原生类型值，主要用于与标准库json包的互操作
+	// Raw returns the corresponding Go native type value, mainly for interoperability with standard json package
+	//
+	// 返回值 Returns:
+	//   - interface{}: Go原生类型值（string、float64、bool、map[string]interface{}、[]interface{}、nil）
+	//                  Go native type value (string, float64, bool, map[string]interface{}, []interface{}, nil)
 	Raw() interface{}
 
-	// String 返回字符串表示
-	// String returns the string representation
+	// String 返回JSON值的字符串表示形式
+	// String returns the string representation of the JSON value
+	//
+	// 返回值 Returns:
+	//   - string: JSON格式的字符串表示 / JSON format string representation
 	String() string
 
-	// IsNull 检查是否为null值
-	// IsNull checks if the value is null
+	// IsNull 检查当前值是否为JSON null
+	// IsNull checks if the current value is JSON null
+	//
+	// 返回值 Returns:
+	//   - bool: 如果是null值返回true，否则返回false / Returns true if null, false otherwise
 	IsNull() bool
 
-	// Clone 创建值的深拷贝
-	// Clone creates a deep copy of the value
+	// Clone 创建当前值的深拷贝
+	// Clone creates a deep copy of the current value
+	//
+	// 对于复杂类型（object、array），会递归复制所有子元素
+	// For complex types (object, array), recursively copies all child elements
+	//
+	// 返回值 Returns:
+	//   - IValue: 深拷贝的新值 / Deep copied new value
 	Clone() IValue
 
-	// Equals 比较两个值是否相等
-	// Equals compares if two values are equal
+	// Equals 比较两个JSON值是否相等
+	// Equals compares if two JSON values are equal
+	//
+	// 参数 Parameters:
+	//   - other: 要比较的另一个JSON值 / Another JSON value to compare
+	//
+	// 返回值 Returns:
+	//   - bool: 如果两个值相等返回true / Returns true if the two values are equal
 	Equals(other IValue) bool
 }
 
@@ -62,41 +99,106 @@ type IScalarValue interface {
 	Bytes() ([]byte, error)
 }
 
-// IObject JSON对象接口
-// IObject represents a JSON object interface
+// IObject 表示JSON对象的接口，提供键值对操作功能
+// IObject represents a JSON object interface, providing key-value pair operations
+//
+// JSON对象是键值对的无序集合，键必须是字符串，值可以是任意JSON类型
+// A JSON object is an unordered collection of key-value pairs, keys must be strings, values can be any JSON type
+//
+// 使用示例 Usage Example:
+//
+//	obj := xyJson.CreateObject()
+//	obj.Set("name", "Alice")
+//	obj.Set("age", 25)
+//	obj.Set("active", true)
+//
+//	fmt.Println(obj.Get("name").String()) // "Alice"
+//	fmt.Println(obj.Has("age"))           // true
+//	fmt.Println(obj.Size())               // 3
+//
+//	// 遍历所有键值对
+//	obj.Range(func(key string, value IValue) bool {
+//		fmt.Printf("%s: %s\n", key, value.String())
+//		return true // 继续遍历
+//	})
 type IObject interface {
 	IValue
 
-	// Get 根据键名获取值
-	// Get retrieves a value by key
+	// Get 根据键名获取对应的JSON值
+	// Get retrieves the JSON value associated with the given key
+	//
+	// 参数 Parameters:
+	//   - key: 要查找的键名 / Key name to look up
+	//
+	// 返回值 Returns:
+	//   - IValue: 对应的JSON值，如果键不存在则返回nil / Associated JSON value, nil if key doesn't exist
 	Get(key string) IValue
 
-	// Set 设置键值对
-	// Set sets a key-value pair
+	// Set 设置或更新指定键的值
+	// Set sets or updates the value for the specified key
+	//
+	// 参数 Parameters:
+	//   - key: 键名 / Key name
+	//   - value: 要设置的值，可以是Go原生类型或IValue / Value to set, can be Go native type or IValue
+	//
+	// 返回值 Returns:
+	//   - error: 设置失败时的错误信息 / Error information when setting fails
 	Set(key string, value interface{}) error
 
-	// Delete 删除指定键
-	// Delete removes the specified key
+	// Delete 删除指定的键值对
+	// Delete removes the specified key-value pair
+	//
+	// 参数 Parameters:
+	//   - key: 要删除的键名 / Key name to delete
+	//
+	// 返回值 Returns:
+	//   - bool: 如果键存在并被删除返回true，否则返回false / Returns true if key existed and was deleted, false otherwise
 	Delete(key string) bool
 
-	// Has 检查是否包含指定键
+	// Has 检查对象是否包含指定的键
 	// Has checks if the object contains the specified key
+	//
+	// 参数 Parameters:
+	//   - key: 要检查的键名 / Key name to check
+	//
+	// 返回值 Returns:
+	//   - bool: 如果键存在返回true / Returns true if key exists
 	Has(key string) bool
 
-	// Keys 返回所有键名
-	// Keys returns all key names
+	// Keys 返回对象中所有键名的切片
+	// Keys returns a slice of all key names in the object
+	//
+	// 返回值 Returns:
+	//   - []string: 所有键名的切片 / Slice of all key names
 	Keys() []string
 
-	// Size 返回键值对数量
-	// Size returns the number of key-value pairs
+	// Size 返回对象中键值对的数量
+	// Size returns the number of key-value pairs in the object
+	//
+	// 返回值 Returns:
+	//   - int: 键值对数量 / Number of key-value pairs
 	Size() int
 
-	// Clear 清空所有键值对
-	// Clear removes all key-value pairs
+	// Clear 清空对象中的所有键值对
+	// Clear removes all key-value pairs from the object
 	Clear()
 
-	// Range 遍历所有键值对
-	// Range iterates over all key-value pairs
+	// Range 遍历对象中的所有键值对
+	// Range iterates over all key-value pairs in the object
+	//
+	// 参数 Parameters:
+	//   - fn: 遍历函数，接收键名和值作为参数，返回false可提前终止遍历
+	//         Iteration function that receives key and value as parameters, return false to terminate early
+	//
+	// 示例 Example:
+	//
+	//	obj.Range(func(key string, value IValue) bool {
+	//		if key == "target" {
+	//			return false // 找到目标键，停止遍历
+	//		}
+	//		fmt.Printf("%s: %s\n", key, value.String())
+	//		return true // 继续遍历
+	//	})
 	Range(fn func(key string, value IValue) bool)
 }
 
@@ -219,7 +321,7 @@ type IValueFactory interface {
 
 	// CreateNumber 创建数字值
 	// CreateNumber creates a number value
-	CreateNumber(n interface{}) (IScalarValue, error)
+	CreateNumber(n interface{}) IScalarValue
 
 	// CreateBool 创建布尔值
 	// CreateBool creates a boolean value
@@ -284,6 +386,10 @@ type SerializeOptions struct {
 	// EscapeHTML 是否转义HTML字符
 	// EscapeHTML indicates whether to escape HTML characters
 	EscapeHTML bool
+
+	// EscapeUnicode 是否转义Unicode字符为\u格式
+	// EscapeUnicode indicates whether to escape Unicode characters to \u format
+	EscapeUnicode bool
 
 	// SortKeys 是否对键名排序
 	// SortKeys indicates whether to sort object keys

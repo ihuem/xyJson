@@ -3,6 +3,7 @@ package xyJson
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -20,11 +21,12 @@ type serializer struct {
 func NewSerializer() ISerializer {
 	return &serializer{
 		options: &SerializeOptions{
-			Indent:     "",
-			EscapeHTML: true,
-			SortKeys:   false,
-			Compact:    false,
-			MaxDepth:   DefaultMaxDepth,
+			Indent:        "",
+			EscapeHTML:    true,
+			EscapeUnicode: false,
+			SortKeys:      false,
+			Compact:       false,
+			MaxDepth:      DefaultMaxDepth,
 		},
 	}
 }
@@ -34,11 +36,12 @@ func NewSerializer() ISerializer {
 func NewSerializerWithOptions(options *SerializeOptions) ISerializer {
 	if options == nil {
 		options = &SerializeOptions{
-			Indent:     "",
-			EscapeHTML: true,
-			SortKeys:   false,
-			Compact:    false,
-			MaxDepth:   DefaultMaxDepth,
+			Indent:        "",
+			EscapeHTML:    true,
+			EscapeUnicode: false,
+			SortKeys:      false,
+			Compact:       false,
+			MaxDepth:      DefaultMaxDepth,
 		}
 	}
 	return &serializer{
@@ -171,8 +174,8 @@ func (s *serializer) serializeString(str string, buf *bytes.Buffer) error {
 			if r < 0x20 || r == 0x7f {
 				// 控制字符需要转义
 				buf.WriteString(fmt.Sprintf("\\u%04x", r))
-			} else if r > 0x7f && s.options.EscapeHTML {
-				// 非ASCII字符在HTML转义模式下需要转义
+			} else if r > 0x7f && s.options.EscapeUnicode {
+				// 非ASCII字符在Unicode转义模式下需要转义
 				buf.WriteString(fmt.Sprintf("\\u%04x", r))
 			} else {
 				buf.WriteRune(r)
@@ -205,11 +208,11 @@ func (s *serializer) serializeNumber(value IValue, buf *bytes.Buffer) error {
 	}
 
 	// 检查特殊值
-	if floatVal != floatVal { // NaN
+	if math.IsNaN(floatVal) { // NaN
 		buf.WriteString("null")
 		return nil
 	}
-	if floatVal == floatVal+1 { // Infinity
+	if math.IsInf(floatVal, 0) { // Infinity
 		buf.WriteString("null")
 		return nil
 	}
@@ -336,11 +339,12 @@ func (s *serializer) serializeArray(arr IArray, buf *bytes.Buffer, depth int, vi
 // CompactSerializer creates a compact serializer
 func CompactSerializer() ISerializer {
 	return NewSerializerWithOptions(&SerializeOptions{
-		Indent:     "",
-		EscapeHTML: true,
-		SortKeys:   false,
-		Compact:    true,
-		MaxDepth:   DefaultMaxDepth,
+		Indent:        "",
+		EscapeHTML:    true,
+		EscapeUnicode: false,
+		SortKeys:      false,
+		Compact:       true,
+		MaxDepth:      DefaultMaxDepth,
 	})
 }
 
@@ -351,11 +355,12 @@ func PrettySerializer(indent string) ISerializer {
 		indent = DefaultIndent
 	}
 	return NewSerializerWithOptions(&SerializeOptions{
-		Indent:     indent,
-		EscapeHTML: true,
-		SortKeys:   true,
-		Compact:    false,
-		MaxDepth:   DefaultMaxDepth,
+		Indent:        indent,
+		EscapeHTML:    true,
+		EscapeUnicode: false,
+		SortKeys:      true,
+		Compact:       false,
+		MaxDepth:      DefaultMaxDepth,
 	})
 }
 
@@ -363,11 +368,12 @@ func PrettySerializer(indent string) ISerializer {
 // HTMLSafeSerializer creates an HTML-safe serializer
 func HTMLSafeSerializer() ISerializer {
 	return NewSerializerWithOptions(&SerializeOptions{
-		Indent:     "",
-		EscapeHTML: true,
-		SortKeys:   false,
-		Compact:    false,
-		MaxDepth:   DefaultMaxDepth,
+		Indent:        "",
+		EscapeHTML:    true,
+		EscapeUnicode: true,
+		SortKeys:      false,
+		Compact:       false,
+		MaxDepth:      DefaultMaxDepth,
 	})
 }
 
@@ -375,11 +381,12 @@ func HTMLSafeSerializer() ISerializer {
 // MinimalSerializer creates a minimal serializer
 func MinimalSerializer() ISerializer {
 	return NewSerializerWithOptions(&SerializeOptions{
-		Indent:     "",
-		EscapeHTML: false,
-		SortKeys:   false,
-		Compact:    true,
-		MaxDepth:   DefaultMaxDepth,
+		Indent:        "",
+		EscapeHTML:    false,
+		EscapeUnicode: false,
+		SortKeys:      false,
+		Compact:       true,
+		MaxDepth:      DefaultMaxDepth,
 	})
 }
 

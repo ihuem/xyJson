@@ -76,15 +76,198 @@ func main() {
         log.Fatal(err)
     }
 
-    // JSONPath查询
-    name, err := xyJson.Get(parsed, "$.name")
+    // JSONPath查询 - 传统方式
+    nameValue, err := xyJson.Get(parsed, "$.name")
     if err == nil {
-        fmt.Println("姓名:", name.String())
+        fmt.Println("姓名:", nameValue.String())
     }
+
+    // JSONPath查询 - 便利API（推荐）
+    name, err := xyJson.GetString(parsed, "$.name")
+    if err == nil {
+        fmt.Println("姓名:", name)
+    }
+
+    age, err := xyJson.GetInt(parsed, "$.age")
+    if err == nil {
+        fmt.Printf("年龄: %d岁\n", age)
+    }
+
+    // 或者使用Must版本（适用于确信数据正确的场景）
+    skills := xyJson.MustGetArray(parsed, "$.skills")
+    fmt.Printf("技能数量: %d\n", skills.Length())
 }
 ```
 
 ## 🔧 高级功能
+
+### 🎯 便利API - 类型安全的数据访问
+
+xyJson 提供了三套便利API，满足不同的使用场景和安全需求：
+
+```go
+// 传统方式：需要类型断言
+priceValue, err := xyJson.Get(root, "$.product.price")
+if err != nil {
+    return err
+}
+scalarValue, ok := priceValue.(xyJson.IScalarValue)
+if !ok {
+    return errors.New("type assertion failed")
+}
+price, err := scalarValue.Float64()
+
+// 1. Get系列方法 - 详细错误信息
+price, err := xyJson.GetFloat64(root, "$.product.price")
+if err != nil {
+    return err
+}
+
+// 2. TryGet系列方法 - 最安全的选择（推荐）
+if price, ok := xyJson.TryGetFloat64(root, "$.product.price"); ok {
+    // 使用price
+} else {
+    // 处理不存在的情况
+}
+
+// 3. Must系列方法 - 谨慎使用（确信数据正确时）
+price := xyJson.MustGetFloat64(root, "$.product.price")
+```
+
+#### 可用的便利方法
+
+| 基础类型 | Get系列 | TryGet系列 | Must系列 | GetWithDefault系列 ✨ | 描述 |
+|---------|---------|------------|----------|---------------------|------|
+| String | `GetString(root, path)` | `TryGetString(root, path)` | `MustGetString(root, path)` | `GetStringWithDefault(root, path, defaultValue)` | 获取字符串值 |
+| Int | `GetInt(root, path)` | `TryGetInt(root, path)` | `MustGetInt(root, path)` | `GetIntWithDefault(root, path, defaultValue)` | 获取整数值 |
+| Int64 | `GetInt64(root, path)` | `TryGetInt64(root, path)` | `MustGetInt64(root, path)` | `GetInt64WithDefault(root, path, defaultValue)` | 获取64位整数值 |
+| Float64 | `GetFloat64(root, path)` | `TryGetFloat64(root, path)` | `MustGetFloat64(root, path)` | `GetFloat64WithDefault(root, path, defaultValue)` | 获取浮点数值 |
+| Bool | `GetBool(root, path)` | `TryGetBool(root, path)` | `MustGetBool(root, path)` | `GetBoolWithDefault(root, path, defaultValue)` | 获取布尔值 |
+| Object | `GetObject(root, path)` | `TryGetObject(root, path)` | `MustGetObject(root, path)` | `GetObjectWithDefault(root, path, defaultValue)` | 获取对象值 |
+| Array | `GetArray(root, path)` | `TryGetArray(root, path)` | `MustGetArray(root, path)` | `GetArrayWithDefault(root, path, defaultValue)` | 获取数组值 |
+
+**返回类型说明：**
+- **Get系列**: `(值, error)` - 返回详细错误信息
+- **TryGet系列**: `(值, bool)` - 返回成功标志，推荐使用
+- **Must系列**: `值` - 失败时panic，谨慎使用
+- **GetWithDefault系列**: `值` - 失败时返回默认值，最简洁 ✨
+
+#### 使用示例
+
+```go
+data := `{
+    "user": {
+        "name": "Alice",
+        "age": 30,
+        "salary": 75000.50,
+        "active": true,
+        "profile": {"email": "alice@example.com"},
+        "skills": ["Go", "JSON", "API"]
+    }
+}`
+
+root, _ := xyJson.ParseString(data)
+
+// 1. Get系列 - 详细错误处理
+name, err := xyJson.GetString(root, "$.user.name")
+if err != nil {
+    fmt.Printf("获取姓名失败: %v\n", err)
+    return
+}
+
+// 2. TryGet系列 - 推荐使用，最安全
+if age, ok := xyJson.TryGetInt(root, "$.user.age"); ok {
+    fmt.Printf("年龄: %d\n", age)
+} else {
+    fmt.Println("年龄信息不存在")
+}
+
+// 配合默认值使用
+theme := "light" // 默认主题
+if t, ok := xyJson.TryGetString(root, "$.user.theme"); ok {
+    theme = t
+}
+
+// 批量安全获取
+var userName, userEmail string
+var userAge int
+var userActive bool
+
+if name, ok := xyJson.TryGetString(root, "$.user.name"); ok {
+    userName = name
+}
+if email, ok := xyJson.TryGetString(root, "$.user.profile.email"); ok {
+    userEmail = email
+}
+if age, ok := xyJson.TryGetInt(root, "$.user.age"); ok {
+    userAge = age
+}
+if active, ok := xyJson.TryGetBool(root, "$.user.active"); ok {
+    userActive = active
+}
+
+// 3. Must系列 - 仅在确信数据正确时使用
+// ⚠️ 警告：以下代码在数据不存在时会panic
+name = xyJson.MustGetString(root, "$.user.name")
+age = xyJson.MustGetInt(root, "$.user.age")
+
+fmt.Printf("用户: %s, 年龄: %d\n", name, age)
+
+// 4. GetWithDefault系列 - 最简洁的选择 ✨
+// 失败时返回默认值，无需判断，代码最简洁
+name = xyJson.GetStringWithDefault(root, "$.user.name", "Unknown")
+age = xyJson.GetIntWithDefault(root, "$.user.age", 0)
+theme := xyJson.GetStringWithDefault(root, "$.user.theme", "light")
+timeout := xyJson.GetFloat64WithDefault(root, "$.config.timeout", 30.0)
+
+fmt.Printf("用户: %s, 年龄: %d, 主题: %s, 超时: %.1f秒\n", name, age, theme, timeout)
+
+// 配置读取场景（GetWithDefault的最佳用例）
+serverConfig := struct {
+    Host string
+    Port int
+    SSL  bool
+}{
+    Host: xyJson.GetStringWithDefault(root, "$.server.host", "localhost"),
+    Port: xyJson.GetIntWithDefault(root, "$.server.port", 8080),
+    SSL:  xyJson.GetBoolWithDefault(root, "$.server.ssl", false),
+}
+fmt.Printf("服务器配置: %+v\n", serverConfig)
+```
+
+#### 🛡️ 安全性建议
+
+1. **配置读取优先使用GetWithDefault系列** ✨：代码最简洁，支持默认值
+2. **日常开发优先使用TryGet系列**：最安全，不会panic，代码更健壮
+3. **Get系列适合调试**：需要详细错误信息时使用
+4. **谨慎使用Must系列**：仅在100%确信数据存在且正确时使用
+
+```go
+// ✅ 最推荐：配置读取使用GetWithDefault
+timeout := xyJson.GetIntWithDefault(root, "$.config.timeout", 30)
+host := xyJson.GetStringWithDefault(root, "$.server.host", "localhost")
+ssl := xyJson.GetBoolWithDefault(root, "$.server.ssl", false)
+
+// ✅ 推荐：安全的数据访问
+if config, ok := xyJson.TryGetObject(root, "$.config"); ok {
+    if timeout, ok := xyJson.TryGetInt(config, "$.timeout"); ok {
+        // 使用timeout
+    }
+}
+
+// ❌ 不推荐：可能导致panic
+timeout := xyJson.MustGetInt(root, "$.config.timeout")
+```
+
+#### 📋 方法选择指南
+
+| 使用场景 | 推荐方法 | 原因 |
+|----------|----------|------|
+| 配置文件读取 | `GetWithDefault` | 代码最简洁，支持默认值 |
+| 可选字段处理 | `GetWithDefault` | 无需判断，直接使用默认值 |
+| 日常开发 | `TryGet` | 安全可靠，代码简洁 |
+| 错误调试 | `Get` | 提供详细错误信息 |
+| 确信数据正确 | `Must` | 代码最简洁，但有panic风险 |
 
 #### 1. 自定义序列化选项
 

@@ -198,10 +198,40 @@ func (pq *pathQuery) parsePath(path string) ([]*pathSegment, error) {
 			// 处理递归下降 '..'
 			if i < len(path) && path[i] == '.' {
 				i++ // 跳过第二个 '.'
-				segments = append(segments, &pathSegment{
-					Type:      PropertySegmentType,
-					Recursive: true,
-				})
+
+				// 检查后面是否有属性名或通配符
+				if i < len(path) {
+					if path[i] == '*' {
+						// $..* 递归通配符
+						i++
+						segments = append(segments, &pathSegment{
+							Type:      PropertySegmentType,
+							Recursive: true,
+							Wildcard:  true,
+						})
+					} else {
+						// $..property 递归属性查找
+						start := i
+						for i < len(path) && path[i] != '.' && path[i] != '[' {
+							i++
+						}
+						if i > start {
+							key := path[start:i]
+							segments = append(segments, &pathSegment{
+								Type:      PropertySegmentType,
+								Key:       key,
+								Recursive: true,
+							})
+						}
+					}
+				} else {
+					// 只有 $..
+					segments = append(segments, &pathSegment{
+						Type:      PropertySegmentType,
+						Recursive: true,
+						Wildcard:  true,
+					})
+				}
 				continue
 			}
 
@@ -318,6 +348,13 @@ func (pq *pathQuery) parseBracketExpression(path string, start int) (*pathSegmen
 // parseFilter 解析过滤器表达式
 // parseFilter parses filter expressions
 func (pq *pathQuery) parseFilter(expr string) (*pathFilter, error) {
+	// 移除外层括号（如果存在）
+	expr = strings.TrimSpace(expr)
+	if strings.HasPrefix(expr, "(") && strings.HasSuffix(expr, ")") {
+		expr = expr[1 : len(expr)-1]
+		expr = strings.TrimSpace(expr)
+	}
+
 	// 简化的过滤器解析
 	// 支持基本的比较操作：==, !=, <, >, <=, >=
 	operators := []string{"==", "!=", "<=", ">=", "<", ">"}
@@ -373,25 +410,23 @@ func (pq *pathQuery) executeQuery(root IValue, segments []*pathSegment, selectAl
 				continue
 			}
 
-			switch segment.Type {
-			case PropertySegmentType:
-				next = append(next, pq.selectProperty(value, segment, selectAll)...)
-			case IndexSegmentType:
-				next = append(next, pq.selectIndex(value, segment, selectAll)...)
-			case FilterSegmentType:
-				next = append(next, pq.selectFilter(value, segment, selectAll)...)
-			}
-
-			// 递归下降
+			// 如果是递归下降，直接调用selectRecursive
 			if segment.Recursive {
 				next = append(next, pq.selectRecursive(value, segment, selectAll)...)
+			} else {
+				// 普通的路径段处理
+				switch segment.Type {
+				case PropertySegmentType:
+					next = append(next, pq.selectProperty(value, segment, selectAll)...)
+				case IndexSegmentType:
+					next = append(next, pq.selectIndex(value, segment, selectAll)...)
+				case FilterSegmentType:
+					next = append(next, pq.selectFilter(value, segment, selectAll)...)
+				}
 			}
 		}
 
 		current = next
-		if !selectAll && len(current) > 0 {
-			break
-		}
 	}
 
 	return current
@@ -501,11 +536,48 @@ func (pq *pathQuery) selectFilter(value IValue, segment *pathSegment, selectAll 
 func (pq *pathQuery) selectRecursive(value IValue, segment *pathSegment, selectAll bool) []IValue {
 	var results []IValue
 
+	// 首先检查当前节点是否匹配
+	if segment.Key != "" {
+		// 如果是对象，检查是否有指定的属性
+		if obj, ok := value.(IObject); ok {
+			if val := obj.Get(segment.Key); val != nil {
+				results = append(results, val)
+				if !selectAll {
+					return results
+				}
+			}
+		}
+	} else if segment.Wildcard {
+		// 通配符匹配所有直接子元素
+		switch v := value.(type) {
+		case IObject:
+			for _, key := range v.Keys() {
+				if val := v.Get(key); val != nil {
+					results = append(results, val)
+					if !selectAll {
+						return results
+					}
+				}
+			}
+		case IArray:
+			for i := 0; i < v.Length(); i++ {
+				if val := v.Get(i); val != nil {
+					results = append(results, val)
+					if !selectAll {
+						return results
+					}
+				}
+			}
+		}
+	}
+
+	// 然后递归检查所有子节点
 	switch v := value.(type) {
 	case IObject:
 		for _, key := range v.Keys() {
 			if val := v.Get(key); val != nil {
-				results = append(results, pq.selectRecursive(val, segment, selectAll)...)
+				childResults := pq.selectRecursive(val, segment, selectAll)
+				results = append(results, childResults...)
 				if !selectAll && len(results) > 0 {
 					break
 				}
@@ -514,7 +586,8 @@ func (pq *pathQuery) selectRecursive(value IValue, segment *pathSegment, selectA
 	case IArray:
 		for i := 0; i < v.Length(); i++ {
 			if val := v.Get(i); val != nil {
-				results = append(results, pq.selectRecursive(val, segment, selectAll)...)
+				childResults := pq.selectRecursive(val, segment, selectAll)
+				results = append(results, childResults...)
 				if !selectAll && len(results) > 0 {
 					break
 				}
@@ -537,8 +610,16 @@ func (pq *pathQuery) evaluateFilter(value IValue, filter *pathFilter) bool {
 	if filter.Expression == "@" {
 		// 当前值
 		compareValue = value.Raw()
+	} else if strings.HasPrefix(filter.Expression, "@.") {
+		// @.property 形式的属性访问
+		propertyName := filter.Expression[2:] // 移除 "@." 前缀
+		if obj, ok := value.(IObject); ok {
+			if val := obj.Get(propertyName); val != nil {
+				compareValue = val.Raw()
+			}
+		}
 	} else {
-		// 属性值
+		// 直接属性名
 		if obj, ok := value.(IObject); ok {
 			if val := obj.Get(filter.Expression); val != nil {
 				compareValue = val.Raw()
@@ -792,7 +873,9 @@ func (pq *pathQuery) deleteFinalValue(parent IValue, segment *pathSegment) error
 	switch segment.Type {
 	case PropertySegmentType:
 		if obj, ok := parent.(IObject); ok {
-			obj.Delete(segment.Key)
+			if !obj.Delete(segment.Key) {
+				return NewPathNotFoundError("property '" + segment.Key + "' not found")
+			}
 			return nil
 		}
 		return NewTypeMismatchError(ObjectValueType, parent.Type(), "")

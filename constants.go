@@ -61,6 +61,9 @@ const (
 	// MaxNestingDepth 最大嵌套深度
 	// MaxNestingDepth is the maximum allowed nesting depth
 	MaxNestingDepth = 1000
+	// DefaultMaxDepth 默认最大解析深度
+	// DefaultMaxDepth is the default maximum parsing depth
+	DefaultMaxDepth = 1000
 )
 
 // 路径段类型枚举
@@ -105,4 +108,41 @@ const (
 	// DefaultSnapshotInterval 默认快照间隔（毫秒）
 	// DefaultSnapshotInterval is the default snapshot interval in milliseconds
 	DefaultSnapshotInterval = 1000
+)
+
+// 对象池测试常量
+// Object pool test constants
+const (
+	// PoolTestValueOperations Value池测试操作次数
+	// PoolTestValueOperations is the number of operations for value pool tests
+	PoolTestValueOperations = 1000
+	// PoolTestObjectOperations Object池测试操作次数
+	// PoolTestObjectOperations is the number of operations for object pool tests
+	PoolTestObjectOperations = 5000
+	// PoolTestArrayOperations Array池测试操作次数
+	// PoolTestArrayOperations is the number of operations for array pool tests
+	PoolTestArrayOperations = 5000
+	// PoolTestWarmupOperations 池预热操作次数
+	// PoolTestWarmupOperations is the number of warmup operations for pool tests
+	PoolTestWarmupOperations = 100
+	// PoolTestObjectWarmupOperations Object池预热操作次数
+	// PoolTestObjectWarmupOperations is the number of warmup operations for object pool tests
+	PoolTestObjectWarmupOperations = 50
+	// PoolTestArrayWarmupOperations Array池预热操作次数
+	// PoolTestArrayWarmupOperations is the number of warmup operations for array pool tests
+	PoolTestArrayWarmupOperations = 50
+)
+
+// 性能测试时间阈值常量
+// Performance test time threshold constants
+const (
+	// ValuePoolPerformanceThreshold Value池性能测试时间阈值
+	// ValuePoolPerformanceThreshold is the time threshold for value pool performance tests
+	ValuePoolPerformanceThreshold = 100 // 毫秒
+	// ObjectPoolPerformanceThreshold Object池性能测试时间阈值
+	// ObjectPoolPerformanceThreshold is the time threshold for object pool performance tests
+	ObjectPoolPerformanceThreshold = 300 // 毫秒
+	// ArrayPoolPerformanceThreshold Array池性能测试时间阈值
+	// ArrayPoolPerformanceThreshold is the time threshold for array pool performance tests
+	ArrayPoolPerformanceThreshold = 200 // 毫秒
 )

@@ -9,16 +9,16 @@ import (
 type Config struct {
 	// 解析器配置
 	Parser ParserConfig `json:"parser"`
-	
+
 	// 序列化器配置
 	Serializer SerializerConfig `json:"serializer"`
-	
+
 	// 对象池配置
 	ObjectPool ObjectPoolConfig `json:"object_pool"`
-	
+
 	// 性能监控配置
 	Performance PerformanceConfig `json:"performance"`
-	
+
 	// JSONPath配置
 	JSONPath JSONPathConfig `json:"jsonpath"`
 }
@@ -28,16 +28,16 @@ type Config struct {
 type ParserConfig struct {
 	// 最大嵌套深度
 	MaxNestingDepth int `json:"max_nesting_depth"`
-	
+
 	// 缓冲区大小
 	BufferSize int `json:"buffer_size"`
-	
+
 	// 是否允许注释
 	AllowComments bool `json:"allow_comments"`
-	
+
 	// 是否允许尾随逗号
 	AllowTrailingCommas bool `json:"allow_trailing_commas"`
-	
+
 	// 是否严格模式
 	StrictMode bool `json:"strict_mode"`
 }
@@ -47,16 +47,19 @@ type ParserConfig struct {
 type SerializerConfig struct {
 	// 默认缩进
 	DefaultIndent string `json:"default_indent"`
-	
+
 	// 是否转义HTML
 	EscapeHTML bool `json:"escape_html"`
-	
+
+	// 是否转义Unicode字符为\u格式
+	EscapeUnicode bool `json:"escape_unicode"`
+
 	// 是否排序键
 	SortKeys bool `json:"sort_keys"`
-	
+
 	// 最大序列化深度
 	MaxDepth int `json:"max_depth"`
-	
+
 	// 是否紧凑模式
 	CompactMode bool `json:"compact_mode"`
 }
@@ -66,16 +69,16 @@ type SerializerConfig struct {
 type ObjectPoolConfig struct {
 	// 是否启用对象池
 	Enabled bool `json:"enabled"`
-	
+
 	// 最大池大小
 	MaxPoolSize int `json:"max_pool_size"`
-	
+
 	// 清理间隔
 	CleanupInterval time.Duration `json:"cleanup_interval"`
-	
+
 	// 最大空闲时间
 	MaxIdleTime time.Duration `json:"max_idle_time"`
-	
+
 	// 预分配大小
 	PreallocateSize int `json:"preallocate_size"`
 }
@@ -85,16 +88,16 @@ type ObjectPoolConfig struct {
 type PerformanceConfig struct {
 	// 是否启用监控
 	Enabled bool `json:"enabled"`
-	
+
 	// 最大快照数量
 	MaxSnapshots int `json:"max_snapshots"`
-	
+
 	// 快照间隔
 	SnapshotInterval time.Duration `json:"snapshot_interval"`
-	
+
 	// 是否启用内存分析
 	EnableMemoryProfiling bool `json:"enable_memory_profiling"`
-	
+
 	// 是否启用详细统计
 	DetailedStats bool `json:"detailed_stats"`
 }
@@ -104,13 +107,13 @@ type PerformanceConfig struct {
 type JSONPathConfig struct {
 	// 最大查询深度
 	MaxQueryDepth int `json:"max_query_depth"`
-	
+
 	// 是否启用缓存
 	EnableCache bool `json:"enable_cache"`
-	
+
 	// 缓存大小
 	CacheSize int `json:"cache_size"`
-	
+
 	// 缓存TTL
 	CacheTTL time.Duration `json:"cache_ttl"`
 }
@@ -129,6 +132,7 @@ func DefaultConfig() *Config {
 		Serializer: SerializerConfig{
 			DefaultIndent: DefaultIndent,
 			EscapeHTML:    true,
+			EscapeUnicode: false,
 			SortKeys:      false,
 			MaxDepth:      MaxNestingDepth,
 			CompactMode:   false,
@@ -160,7 +164,7 @@ func DefaultConfig() *Config {
 // ProductionConfig returns production environment configuration
 func ProductionConfig() *Config {
 	config := DefaultConfig()
-	
+
 	// 生产环境优化
 	config.Parser.StrictMode = true
 	config.Serializer.CompactMode = true
@@ -172,7 +176,7 @@ func ProductionConfig() *Config {
 	config.Performance.DetailedStats = false
 	config.JSONPath.EnableCache = true
 	config.JSONPath.CacheSize = 500
-	
+
 	return config
 }
 
@@ -180,7 +184,7 @@ func ProductionConfig() *Config {
 // DevelopmentConfig returns development environment configuration
 func DevelopmentConfig() *Config {
 	config := DefaultConfig()
-	
+
 	// 开发环境优化
 	config.Parser.AllowComments = true
 	config.Parser.AllowTrailingCommas = true
@@ -190,7 +194,7 @@ func DevelopmentConfig() *Config {
 	config.Performance.Enabled = true
 	config.Performance.DetailedStats = true
 	config.Performance.EnableMemoryProfiling = true
-	
+
 	return config
 }
 
@@ -198,7 +202,7 @@ func DevelopmentConfig() *Config {
 // HighPerformanceConfig returns high performance configuration
 func HighPerformanceConfig() *Config {
 	config := DefaultConfig()
-	
+
 	// 高性能优化
 	config.Parser.BufferSize = DefaultParserBufferSize * 2
 	config.Serializer.CompactMode = true
@@ -210,7 +214,7 @@ func HighPerformanceConfig() *Config {
 	config.Performance.Enabled = false // 关闭监控以获得最佳性能
 	config.JSONPath.EnableCache = true
 	config.JSONPath.CacheSize = 1000
-	
+
 	return config
 }
 
@@ -225,7 +229,7 @@ func SetGlobalConfig(config *Config) {
 		return
 	}
 	globalConfig = config
-	
+
 	// 应用配置到各个组件
 	applyConfigToComponents(config)
 }
@@ -245,7 +249,7 @@ func applyConfigToComponents(config *Config) {
 	} else {
 		DisablePerformanceMonitoring()
 	}
-	
+
 	// 应用内存分析配置
 	if config.Performance.EnableMemoryProfiling {
 		StartMemoryProfiling()
@@ -258,7 +262,7 @@ func applyConfigToComponents(config *Config) {
 // LoadConfigFromEnvironment loads configuration from environment variables
 func LoadConfigFromEnvironment() *Config {
 	config := DefaultConfig()
-	
+
 	// 这里可以添加从环境变量读取配置的逻辑
 	// 例如：
 	// if env := os.Getenv("XYJSON_PARSER_MAX_DEPTH"); env != "" {
@@ -266,7 +270,7 @@ func LoadConfigFromEnvironment() *Config {
 	//         config.Parser.MaxNestingDepth = depth
 	//     }
 	// }
-	
+
 	return config
 }
 
@@ -276,7 +280,7 @@ func ValidateConfig(config *Config) error {
 	if config == nil {
 		return NewInvalidOperationError("config validation", "config cannot be nil")
 	}
-	
+
 	// 验证解析器配置
 	if config.Parser.MaxNestingDepth <= 0 {
 		return NewInvalidOperationError("config validation", "parser max nesting depth must be positive")
@@ -284,12 +288,12 @@ func ValidateConfig(config *Config) error {
 	if config.Parser.BufferSize <= 0 {
 		return NewInvalidOperationError("config validation", "parser buffer size must be positive")
 	}
-	
+
 	// 验证序列化器配置
 	if config.Serializer.MaxDepth <= 0 {
 		return NewInvalidOperationError("config validation", "serializer max depth must be positive")
 	}
-	
+
 	// 验证对象池配置
 	if config.ObjectPool.MaxPoolSize < 0 {
 		return NewInvalidOperationError("config validation", "object pool max size cannot be negative")
@@ -297,7 +301,7 @@ func ValidateConfig(config *Config) error {
 	if config.ObjectPool.CleanupInterval < 0 {
 		return NewInvalidOperationError("config validation", "object pool cleanup interval cannot be negative")
 	}
-	
+
 	// 验证性能配置
 	if config.Performance.MaxSnapshots < 0 {
 		return NewInvalidOperationError("config validation", "performance max snapshots cannot be negative")
@@ -305,7 +309,7 @@ func ValidateConfig(config *Config) error {
 	if config.Performance.SnapshotInterval < 0 {
 		return NewInvalidOperationError("config validation", "performance snapshot interval cannot be negative")
 	}
-	
+
 	// 验证JSONPath配置
 	if config.JSONPath.MaxQueryDepth <= 0 {
 		return NewInvalidOperationError("config validation", "jsonpath max query depth must be positive")
@@ -313,7 +317,7 @@ func ValidateConfig(config *Config) error {
 	if config.JSONPath.CacheSize < 0 {
 		return NewInvalidOperationError("config validation", "jsonpath cache size cannot be negative")
 	}
-	
+
 	return nil
 }
 
