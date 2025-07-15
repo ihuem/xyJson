@@ -176,13 +176,13 @@ func (p *parser) parseString() (IValue, error) {
 			}
 			// 将转义序列原样添加到缓冲区，稍后由unescapeString处理
 			buf = append(buf, ch) // 添加反斜杠
-			p.advance() // 跳过反斜杠
+			p.advance()           // 跳过反斜杠
 			if p.pos >= len(p.data) {
 				return nil, NewInvalidJSONError("unexpected end of input in string escape", nil)
 			}
 			escapeChar := p.data[p.pos]
 			buf = append(buf, escapeChar) // 添加转义字符
-			
+
 			// 验证转义字符的有效性
 			switch escapeChar {
 			case '"', '\\', '/', 'b', 'f', 'n', 'r', 't':
@@ -197,7 +197,7 @@ func (p *parser) parseString() (IValue, error) {
 					if p.pos >= len(p.data) {
 						return nil, NewInvalidJSONError("incomplete unicode escape", nil)
 					}
-					ch := p.data[p.pos]
+					ch = p.data[p.pos]
 					if !((ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F')) {
 						return nil, NewInvalidJSONError("invalid unicode escape", nil)
 					}
