@@ -334,6 +334,90 @@ type ISerializer interface {
 	// SerializeToString serializes to a string
 	SerializeToString(value IValue) (string, error)
 
+	// SerializeToStruct 将JSON值序列化到结构体
+	// SerializeToStruct serializes JSON value to struct
+	//
+	// 参数 Parameters:
+	//   - value: 要序列化的JSON值 / JSON value to serialize
+	//   - target: 目标结构体指针 / Target struct pointer
+	//
+	// 返回值 Returns:
+	//   - error: 序列化错误，成功时为nil / Serialization error, nil on success
+	//
+	// 注意 Notes:
+	//   - target必须是指向结构体的指针 / target must be a pointer to struct
+	//   - 支持json标签映射 / Supports json tag mapping
+	//   - 支持嵌套结构体和复杂类型 / Supports nested structs and complex types
+	SerializeToStruct(value IValue, target interface{}) error
+
+	// MustSerializeToStruct 将JSON值序列化到结构体，失败时panic
+	// MustSerializeToStruct serializes JSON value to struct, panics on failure
+	//
+	// 参数 Parameters:
+	//   - value: 要序列化的JSON值 / JSON value to serialize
+	//   - target: 目标结构体指针 / Target struct pointer
+	//
+	// 注意 Notes:
+	//   - 这是SerializeToStruct的Must版本 / This is the Must version of SerializeToStruct
+	//   - 出错时会panic而不是返回错误 / Panics on error instead of returning error
+	MustSerializeToStruct(value IValue, target interface{})
+
+	// UnmarshalToStructFast 快速解析JSON字节数组到Go结构体（跳过IValue中间表示）
+	// UnmarshalToStructFast fast parses JSON byte array to Go struct (skips IValue intermediate representation)
+	//
+	// 参数 Parameters:
+	//   - data: JSON字节数组 / JSON byte array
+	//   - target: 目标结构体指针 / Target struct pointer
+	//
+	// 返回值 Returns:
+	//   - error: 解析或序列化错误 / Parse or serialization error
+	//
+	// 注意 Notes:
+	//   - 这是性能优化版本，跳过IValue中间表示 / This is a performance-optimized version that skips IValue intermediate representation
+	//   - 功能相对简化，但性能更好 / Simplified functionality but better performance
+	UnmarshalToStructFast(data []byte, target interface{}) error
+
+	// UnmarshalToStructCustom 使用自定义解析器解析JSON到结构体（不依赖官方包）
+	// UnmarshalToStructCustom unmarshal JSON to struct using custom parser (no official package dependency)
+	//
+	// 使用完全自定义的解析器，避免依赖官方json包，可能提供更好的性能
+	// Uses completely custom parser, avoiding dependency on official json package, may provide better performance
+	//
+	// 参数 Parameters:
+	//   - data: JSON字节数组 / JSON byte array
+	//   - target: 目标结构体指针 / Target struct pointer
+	//
+	// 返回值 Returns:
+	//   - error: 解析过程中的错误 / Error during parsing
+	UnmarshalToStructCustom(data []byte, target interface{}) error
+
+	// UnmarshalStringToStructCustom 使用自定义解析器解析JSON字符串到结构体
+	// UnmarshalStringToStructCustom unmarshal JSON string to struct using custom parser
+	//
+	// 参数 Parameters:
+	//   - data: JSON字符串 / JSON string
+	//   - target: 目标结构体指针 / Target struct pointer
+	//
+	// 返回值 Returns:
+	//   - error: 解析过程中的错误 / Error during parsing
+	UnmarshalStringToStructCustom(data string, target interface{}) error
+
+	// MustUnmarshalToStructCustom 使用自定义解析器解析JSON到结构体（panic版本）
+	// MustUnmarshalToStructCustom unmarshal JSON to struct using custom parser (panic version)
+	//
+	// 参数 Parameters:
+	//   - data: JSON字节数组 / JSON byte array
+	//   - target: 目标结构体指针 / Target struct pointer
+	MustUnmarshalToStructCustom(data []byte, target interface{})
+
+	// MustUnmarshalStringToStructCustom 使用自定义解析器解析JSON字符串到结构体（panic版本）
+	// MustUnmarshalStringToStructCustom unmarshal JSON string to struct using custom parser (panic version)
+	//
+	// 参数 Parameters:
+	//   - data: JSON字符串 / JSON string
+	//   - target: 目标结构体指针 / Target struct pointer
+	MustUnmarshalStringToStructCustom(data string, target interface{})
+
 	// SetOptions 设置序列化选项
 	// SetOptions sets serialization options
 	SetOptions(options *SerializeOptions)

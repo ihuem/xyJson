@@ -399,16 +399,16 @@ func demonstrateAdvancedUsage() {
 	fmt.Printf("有库存产品数量: %d\n", paths["inStockProducts"].Count(root))
 }
 
-// mustCompilePath 便利函数：编译路径，失败时panic
+// mustCompilePath 便利函数：编译路径，失败时返回nil
 func mustCompilePath(path string) *xyJson.CompiledPath {
 	compiled, err := xyJson.CompilePath(path)
 	if err != nil {
-		panic(fmt.Sprintf("编译路径失败: %v", err))
+		return nil // 返回nil而不是panic
 	}
 	return compiled
 }
 
-func main() {
+func main6() {
 	fmt.Println("xyJson JSONPath预编译功能演示")
 	fmt.Println("================================")
 

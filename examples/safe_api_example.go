@@ -84,25 +84,17 @@ func main4() {
 	}
 
 	fmt.Println()
-	fmt.Println("3. Must方法 - 有风险但简洁（已添加安全警告）")
-	fmt.Println("=============================================")
+	fmt.Println("3. Must方法 - 安全简洁（失败时返回默认零值）")
+	fmt.Println("===========================================")
 
-	// 安全使用Must方法（确信数据存在）
-	func() {
-		defer func() {
-			if r := recover(); r != nil {
-				fmt.Printf("Must方法panic: %v\n", r)
-			}
-		}()
+	// Must方法现在安全了（失败时返回默认零值）
+	// 这个会成功
+	name = xyJson.MustGetString(root, "$.user.name")
+	fmt.Printf("姓名（Must方法）: %s\n", name)
 
-		// 这个会成功
-		name := xyJson.MustGetString(root, "$.user.name")
-		fmt.Printf("姓名（Must方法）: %s\n", name)
-
-		// 这个会panic
-		city := xyJson.MustGetString(root, "$.user.city")
-		fmt.Printf("城市（Must方法）: %s\n", city) // 不会执行到这里
-	}()
+	// 这个会返回空字符串（默认零值）
+	city = xyJson.MustGetString(root, "$.user.city")
+	fmt.Printf("城市（Must方法）: '%s'（空字符串）\n", city)
 
 	fmt.Println()
 	fmt.Println("4. 实际应用场景对比")
@@ -131,25 +123,19 @@ func main4() {
 		fmt.Printf("邮箱: %s\n", email)
 	}
 
-	// 场景3：快速原型开发（可以谨慎使用Must方法）
-	fmt.Println("\n场景3: 快速原型开发（谨慎使用Must）")
-	func() {
-		defer func() {
-			if r := recover(); r != nil {
-				fmt.Printf("原型代码出错: %v\n", r)
-			}
-		}()
-
-		// 在确信数据结构的情况下使用Must方法
-		userName := xyJson.MustGetString(root, "$.user.name")
-		userAge := xyJson.MustGetInt(root, "$.user.age")
-		fmt.Printf("用户信息: %s, %d岁\n", userName, userAge)
-	}()
+	// 场景3：快速原型开发（安全使用Must方法）
+	fmt.Println("\n场景3: 快速原型开发（安全使用Must）")
+	// Must方法现在安全了，失败时返回默认零值
+	userName := xyJson.MustGetString(root, "$.user.name")
+	userAge := xyJson.MustGetInt(root, "$.user.age")
+	nonExistentField := xyJson.MustGetString(root, "$.user.nonexistent") // 返回空字符串
+	fmt.Printf("用户信息: %s, %d岁\n", userName, userAge)
+	fmt.Printf("不存在的字段: '%s'（空字符串）\n", nonExistentField)
 
 	fmt.Println()
 	fmt.Println("=== 总结 ===")
 	fmt.Println("1. Get方法: 适合需要详细错误信息的场景")
 	fmt.Println("2. TryGet方法: 最安全，适合大多数场景")
-	fmt.Println("3. Must方法: 有风险，仅在确信数据正确时使用")
+	fmt.Println("3. Must方法: 安全简洁，失败时返回默认零值")
 	fmt.Println("4. 推荐优先使用TryGet方法，它既安全又简洁")
 }

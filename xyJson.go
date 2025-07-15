@@ -172,22 +172,22 @@ func ParseString(data string) (IValue, error) {
 	return result, err
 }
 
-// MustParse 解析JSON，如果失败则panic
-// MustParse parses JSON, panics on failure
+// MustParse 解析JSON，如果失败则返回null值
+// MustParse parses JSON, returns null value on failure
 func MustParse(data []byte) IValue {
 	result, err := Parse(data)
 	if err != nil {
-		panic(err)
+		return CreateNull()
 	}
 	return result
 }
 
-// MustParseString 解析JSON字符串，如果失败则panic
-// MustParseString parses JSON string, panics on failure
+// MustParseString 解析JSON字符串，如果失败则返回null值
+// MustParseString parses JSON string, returns null value on failure
 func MustParseString(data string) IValue {
 	result, err := ParseString(data)
 	if err != nil {
-		panic(err)
+		return CreateNull()
 	}
 	return result
 }
@@ -269,22 +269,22 @@ func SerializeToString(value IValue) (string, error) {
 	return result, err
 }
 
-// MustSerialize 序列化JSON值，如果失败则panic
-// MustSerialize serializes JSON value, panics on failure
+// MustSerialize 序列化JSON值，如果失败则返回空字节数组
+// MustSerialize serializes JSON value, returns empty byte array on failure
 func MustSerialize(value IValue) []byte {
 	result, err := Serialize(value)
 	if err != nil {
-		panic(err)
+		return []byte{}
 	}
 	return result
 }
 
-// MustSerializeToString 序列化JSON值到字符串，如果失败则panic
-// MustSerializeToString serializes JSON value to string, panics on failure
+// MustSerializeToString 序列化JSON值到字符串，如果失败则返回空字符串
+// MustSerializeToString serializes JSON value to string, returns empty string on failure
 func MustSerializeToString(value IValue) string {
 	result, err := SerializeToString(value)
 	if err != nil {
-		panic(err)
+		return ""
 	}
 	return result
 }
@@ -296,12 +296,12 @@ func Pretty(value IValue) (string, error) {
 	return prettySerializer.SerializeToString(value)
 }
 
-// MustPretty 格式化JSON值，如果失败则panic
-// MustPretty formats JSON value, panics on failure
+// MustPretty 格式化JSON值，如果失败则返回空字符串
+// MustPretty formats JSON value, returns empty string on failure
 func MustPretty(value IValue) string {
 	result, err := Pretty(value)
 	if err != nil {
-		panic(err)
+		return ""
 	}
 	return result
 }
@@ -313,14 +313,255 @@ func Compact(value IValue) (string, error) {
 	return compactSerializer.SerializeToString(value)
 }
 
-// MustCompact 压缩JSON值，如果失败则panic
-// MustCompact compacts JSON value, panics on failure
+// MustCompact 压缩JSON值，如果失败则返回空字符串
+// MustCompact compacts JSON value, returns empty string on failure
 func MustCompact(value IValue) string {
 	result, err := Compact(value)
 	if err != nil {
-		panic(err)
+		return ""
 	}
 	return result
+}
+
+// SerializeToStruct 将JSON值序列化到Go结构体
+// SerializeToStruct serializes a JSON value to a Go struct
+//
+// 参数 Parameters:
+//   - value: 要序列化的JSON值 / JSON value to serialize
+//   - target: 目标结构体指针 / Target struct pointer
+//
+// 返回值 Returns:
+//   - error: 序列化错误 / Serialization error
+//
+// 示例 Example:
+//
+//	type Person struct {
+//		Name string `json:"name"`
+//		Age  int    `json:"age"`
+//	}
+//
+//	value, _ := xyJson.Parse([]byte(`{"name":"Alice","age":25}`))
+//	var person Person
+//	err := xyJson.SerializeToStruct(value, &person)
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//	fmt.Printf("Name: %s, Age: %d\n", person.Name, person.Age)
+func SerializeToStruct(value IValue, target interface{}) error {
+	return defaultSerializer.SerializeToStruct(value, target)
+}
+
+// MustSerializeToStruct 将JSON值序列化到Go结构体，如果失败则panic
+// MustSerializeToStruct serializes a JSON value to a Go struct, panics on failure
+//
+// 参数 Parameters:
+//   - value: 要序列化的JSON值 / JSON value to serialize
+//   - target: 目标结构体指针 / Target struct pointer
+//
+// 示例 Example:
+//
+//	type Config struct {
+//		Host string `json:"host"`
+//		Port int    `json:"port"`
+//	}
+//
+//	value, _ := xyJson.Parse([]byte(`{"host":"localhost","port":8080}`))
+//	var config Config
+//	xyJson.MustSerializeToStruct(value, &config)
+//	fmt.Printf("Server: %s:%d\n", config.Host, config.Port)
+func MustSerializeToStruct(value IValue, target interface{}) {
+	defaultSerializer.MustSerializeToStruct(value, target)
+}
+
+// UnmarshalToStruct 解析JSON字节数组并序列化到Go结构体
+// UnmarshalToStruct parses JSON byte array and serializes to Go struct
+//
+// 参数 Parameters:
+//   - data: JSON字节数组 / JSON byte array
+//   - target: 目标结构体指针 / Target struct pointer
+//
+// 返回值 Returns:
+//   - error: 解析或序列化错误 / Parse or serialization error
+//
+// 示例 Example:
+//
+//	type User struct {
+//		ID   int    `json:"id"`
+//		Name string `json:"name"`
+//	}
+//
+//	data := []byte(`{"id":123,"name":"Bob"}`)
+//	var user User
+//	err := xyJson.UnmarshalToStruct(data, &user)
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+func UnmarshalToStruct(data []byte, target interface{}) error {
+	value, err := Parse(data)
+	if err != nil {
+		return err
+	}
+	return SerializeToStruct(value, target)
+}
+
+// MustUnmarshalToStruct 解析JSON字节数组并序列化到Go结构体，如果失败则panic
+// MustUnmarshalToStruct parses JSON byte array and serializes to Go struct, panics on failure
+//
+// 参数 Parameters:
+//   - data: JSON字节数组 / JSON byte array
+//   - target: 目标结构体指针 / Target struct pointer
+//
+// 示例 Example:
+//
+//	type Settings struct {
+//		Debug   bool   `json:"debug"`
+//		Timeout int    `json:"timeout"`
+//	}
+//
+//	data := []byte(`{"debug":true,"timeout":30}`)
+//	var settings Settings
+//	xyJson.MustUnmarshalToStruct(data, &settings)
+func MustUnmarshalToStruct(data []byte, target interface{}) {
+	value := MustParse(data)
+	MustSerializeToStruct(value, target)
+}
+
+// UnmarshalStringToStruct 解析JSON字符串并序列化到Go结构体
+// UnmarshalStringToStruct parses JSON string and serializes to Go struct
+//
+// 参数 Parameters:
+//   - data: JSON字符串 / JSON string
+//   - target: 目标结构体指针 / Target struct pointer
+//
+// 返回值 Returns:
+//   - error: 解析或序列化错误 / Parse or serialization error
+func UnmarshalStringToStruct(data string, target interface{}) error {
+	value, err := ParseString(data)
+	if err != nil {
+		return err
+	}
+	return SerializeToStruct(value, target)
+}
+
+// MustUnmarshalStringToStruct 解析JSON字符串并序列化到Go结构体，如果失败则panic
+// MustUnmarshalStringToStruct parses JSON string and serializes to Go struct, panics on failure
+//
+// 参数 Parameters:
+//   - data: JSON字符串 / JSON string
+//   - target: 目标结构体指针 / Target struct pointer
+func MustUnmarshalStringToStruct(data string, target interface{}) {
+	value := MustParseString(data)
+	MustSerializeToStruct(value, target)
+}
+
+// UnmarshalToStructFast 快速解析JSON字节数组到Go结构体（跳过IValue中间表示）
+// UnmarshalToStructFast fast parses JSON byte array to Go struct (skips IValue intermediate representation)
+//
+// 这个函数提供了一个直接从JSON字节流到struct的快速路径，跳过了IValue的中间表示，
+// 在不需要高级功能时可以提供接近官方json包的性能。
+// This function provides a fast path directly from JSON byte stream to struct, skipping IValue intermediate representation,
+// offering performance close to the official json package when advanced features are not needed.
+//
+// 参数 Parameters:
+//   - data: JSON字节数组 / JSON byte array
+//   - target: 目标结构体指针 / Target struct pointer
+//
+// 返回值 Returns:
+//   - error: 解析或序列化错误 / Parse or serialization error
+//
+// 注意 Note: 此函数为性能优化版本，功能相对简化 / This is a performance-optimized version with simplified functionality
+func UnmarshalToStructFast(data []byte, target interface{}) error {
+	return defaultSerializer.UnmarshalToStructFast(data, target)
+}
+
+// UnmarshalStringToStructFast 快速解析JSON字符串到Go结构体（跳过IValue中间表示）
+// UnmarshalStringToStructFast fast parses JSON string to Go struct (skips IValue intermediate representation)
+//
+// 参数 Parameters:
+//   - data: JSON字符串 / JSON string
+//   - target: 目标结构体指针 / Target struct pointer
+//
+// 返回值 Returns:
+//   - error: 解析或序列化错误 / Parse or serialization error
+func UnmarshalStringToStructFast(data string, target interface{}) error {
+	return UnmarshalToStructFast([]byte(data), target)
+}
+
+// MustUnmarshalToStructFast 快速解析JSON字节数组到Go结构体，如果失败则panic
+// MustUnmarshalToStructFast fast parses JSON byte array to Go struct, panics on failure
+//
+// 参数 Parameters:
+//   - data: JSON字节数组 / JSON byte array
+//   - target: 目标结构体指针 / Target struct pointer
+func MustUnmarshalToStructFast(data []byte, target interface{}) {
+	err := UnmarshalToStructFast(data, target)
+	if err != nil {
+		panic(err)
+	}
+}
+
+// MustUnmarshalStringToStructFast 快速解析JSON字符串到Go结构体，如果失败则panic
+// MustUnmarshalStringToStructFast fast parses JSON string to Go struct, panics on failure
+//
+// 参数 Parameters:
+//   - data: JSON字符串 / JSON string
+//   - target: 目标结构体指针 / Target struct pointer
+func MustUnmarshalStringToStructFast(data string, target interface{}) {
+	err := UnmarshalStringToStructFast(data, target)
+	if err != nil {
+		panic(err)
+	}
+}
+
+// UnmarshalToStructCustom 使用自定义解析器将JSON字节数组解析到结构体
+// UnmarshalToStructCustom unmarshals JSON byte array to struct using custom parser
+//
+// 参数 Parameters:
+//   - data: 要解析的JSON字节数组 / JSON byte array to parse
+//   - target: 目标结构体指针 / Target struct pointer
+//
+// 返回值 Returns:
+//   - error: 解析错误 / Parse error
+//
+// 特性 Features:
+//   - 不依赖官方json包 / Does not depend on official json package
+//   - 高性能自定义解析器 / High-performance custom parser
+//   - 支持结构体标签 / Supports struct tags
+//
+// 示例 Example:
+//
+//	type User struct {
+//		Name string `json:"name"`
+//		Age  int    `json:"age"`
+//	}
+//	var user User
+//	err := xyJson.UnmarshalToStructCustom([]byte(`{"name":"Alice","age":25}`), &user)
+func UnmarshalToStructCustom(data []byte, target interface{}) error {
+	return defaultSerializer.UnmarshalToStructCustom(data, target)
+}
+
+// UnmarshalStringToStructCustom 使用自定义解析器将JSON字符串解析到结构体
+// UnmarshalStringToStructCustom unmarshals JSON string to struct using custom parser
+func UnmarshalStringToStructCustom(data string, target interface{}) error {
+	return defaultSerializer.UnmarshalStringToStructCustom(data, target)
+}
+
+// MustUnmarshalToStructCustom 使用自定义解析器解析JSON到结构体，如果失败则panic
+// MustUnmarshalToStructCustom unmarshals JSON to struct using custom parser, panics on failure
+func MustUnmarshalToStructCustom(data []byte, target interface{}) {
+	err := UnmarshalToStructCustom(data, target)
+	if err != nil {
+		panic(err)
+	}
+}
+
+// MustUnmarshalStringToStructCustom 使用自定义解析器解析JSON字符串到结构体，如果失败则panic
+// MustUnmarshalStringToStructCustom unmarshals JSON string to struct using custom parser, panics on failure
+func MustUnmarshalStringToStructCustom(data string, target interface{}) {
+	err := UnmarshalStringToStructCustom(data, target)
+	if err != nil {
+		panic(err)
+	}
 }
 
 // Get 使用JSONPath表达式从根值中获取单个匹配的值
@@ -353,8 +594,8 @@ func Get(root IValue, path string) (IValue, error) {
 	return defaultPathQuery.SelectOne(root, path)
 }
 
-// MustGet 使用JSONPath获取值，如果失败则panic
-// MustGet gets value using JSONPath, panics on failure
+// MustGet 使用JSONPath获取值，如果失败则返回null值
+// MustGet gets value using JSONPath, returns null value on failure
 //
 // 这是Get函数的便捷版本，适用于确信路径存在的场景
 // This is a convenience version of Get, suitable for scenarios where the path is certain to exist
@@ -366,11 +607,11 @@ func Get(root IValue, path string) (IValue, error) {
 // 返回值 Returns:
 //   - IValue: 匹配的JSON值 / Matching JSON value
 //
-// 注意 Note: 如果路径不存在或查询失败，此函数会panic / This function panics if path doesn't exist or query fails
+// 注意 Note: 如果路径不存在或查询失败，此函数返回null值 / This function returns null value if path doesn't exist or query fails
 func MustGet(root IValue, path string) IValue {
 	result, err := Get(root, path)
 	if err != nil {
-		panic(err)
+		return CreateNull()
 	}
 	return result
 }
@@ -427,6 +668,40 @@ func Exists(root IValue, path string) bool {
 // Count counts matching paths
 func Count(root IValue, path string) int {
 	return defaultPathQuery.Count(root, path)
+}
+
+// Filter 根据条件过滤JSONPath查询结果
+// Filter filters JSONPath query results based on a condition
+func Filter(root IValue, path string, predicate func(IValue) bool) ([]IValue, error) {
+	if predicate == nil {
+		return nil, NewJSONError(ErrInvalidOperation, "predicate cannot be nil", nil)
+	}
+
+	// 首先获取所有匹配的元素
+	allResults, err := GetAll(root, path)
+	if err != nil {
+		return nil, err
+	}
+
+	// 应用过滤条件
+	var filteredResults []IValue
+	for _, result := range allResults {
+		if predicate(result) {
+			filteredResults = append(filteredResults, result)
+		}
+	}
+
+	return filteredResults, nil
+}
+
+// MustFilter 根据条件过滤JSONPath查询结果，失败时返回空数组
+// MustFilter filters JSONPath query results based on a condition, returns empty array on failure
+func MustFilter(root IValue, path string, predicate func(IValue) bool) []IValue {
+	result, err := Filter(root, path, predicate)
+	if err != nil {
+		return []IValue{}
+	}
+	return result
 }
 
 // BatchResult 批量操作结果结构体
@@ -652,7 +927,7 @@ func GetBool(root IValue, path string) (bool, error) {
 func GetObject(root IValue, path string) (IObject, error) {
 	value, err := Get(root, path)
 	if err != nil {
-		return nil, err
+		return CreateObject(), err
 	}
 	return ToObject(value)
 }
@@ -670,13 +945,13 @@ func GetObject(root IValue, path string) (IObject, error) {
 func GetArray(root IValue, path string) (IArray, error) {
 	value, err := Get(root, path)
 	if err != nil {
-		return nil, err
+		return CreateArray(), err
 	}
 	return ToArray(value)
 }
 
-// MustGetString 使用JSONPath获取字符串值，如果失败则panic
-// MustGetString gets string value using JSONPath, panics on failure
+// MustGetString 使用JSONPath获取字符串值，如果失败则返回空字符串
+// MustGetString gets string value using JSONPath, returns empty string on failure
 //
 // 参数 Parameters:
 //   - root: 根JSON值 / Root JSON value
@@ -685,47 +960,47 @@ func GetArray(root IValue, path string) (IArray, error) {
 // 返回值 Returns:
 //   - string: 字符串值 / String value
 //
-// 警告 Warning: 此方法在失败时会panic，仅在确信数据正确时使用
-// This method panics on failure, use only when you're certain the data is correct
+// 注意 Note: 此方法在失败时返回空字符串，作为更安全的替代方案
+// This method returns empty string on failure as a safer alternative
 // 推荐使用TryGetString作为更安全的替代方案 / Consider using TryGetString as a safer alternative
 func MustGetString(root IValue, path string) string {
 	result, err := GetString(root, path)
 	if err != nil {
-		panic(err)
+		return ""
 	}
 	return result
 }
 
-// MustGetInt 使用JSONPath获取整数值，如果失败则panic
-// MustGetInt gets integer value using JSONPath, panics on failure
+// MustGetInt 使用JSONPath获取整数值，如果失败则返回0
+// MustGetInt gets integer value using JSONPath, returns 0 on failure
 //
-// 警告 Warning: 此方法在失败时会panic，仅在确信数据正确时使用
-// This method panics on failure, use only when you're certain the data is correct
+// 注意 Note: 此方法在失败时返回0，作为更安全的替代方案
+// This method returns 0 on failure as a safer alternative
 // 推荐使用TryGetInt作为更安全的替代方案 / Consider using TryGetInt as a safer alternative
 func MustGetInt(root IValue, path string) int {
 	result, err := GetInt(root, path)
 	if err != nil {
-		panic(err)
+		return 0
 	}
 	return result
 }
 
-// MustGetInt64 使用JSONPath获取64位整数值，如果失败则panic
-// MustGetInt64 gets 64-bit integer value using JSONPath, panics on failure
+// MustGetInt64 使用JSONPath获取64位整数值，如果失败则返回0
+// MustGetInt64 gets 64-bit integer value using JSONPath, returns 0 on failure
 //
-// 警告 Warning: 此方法在失败时会panic，仅在确信数据正确时使用
-// This method panics on failure, use only when you're certain the data is correct
+// 注意 Note: 此方法在失败时返回0，作为更安全的替代方案
+// This method returns 0 on failure as a safer alternative
 // 推荐使用TryGetInt64作为更安全的替代方案 / Consider using TryGetInt64 as a safer alternative
 func MustGetInt64(root IValue, path string) int64 {
 	result, err := GetInt64(root, path)
 	if err != nil {
-		panic(err)
+		return 0
 	}
 	return result
 }
 
-// MustGetFloat64 使用JSONPath获取浮点数值，如果失败则panic
-// MustGetFloat64 gets float64 value using JSONPath, panics on failure
+// MustGetFloat64 使用JSONPath获取浮点数值，如果失败则返回0.0
+// MustGetFloat64 gets float64 value using JSONPath, returns 0.0 on failure
 //
 // 参数 Parameters:
 //   - root: 根JSON值 / Root JSON value
@@ -734,54 +1009,54 @@ func MustGetInt64(root IValue, path string) int64 {
 // 返回值 Returns:
 //   - float64: 浮点数值 / Float64 value
 //
-// 警告 Warning: 此方法在失败时会panic，仅在确信数据正确时使用
-// This method panics on failure, use only when you're certain the data is correct
+// 注意 Note: 此方法在失败时返回0.0，作为更安全的替代方案
+// This method returns 0.0 on failure as a safer alternative
 // 推荐使用TryGetFloat64作为更安全的替代方案 / Consider using TryGetFloat64 as a safer alternative
 func MustGetFloat64(root IValue, path string) float64 {
 	result, err := GetFloat64(root, path)
 	if err != nil {
-		panic(err)
+		return 0.0
 	}
 	return result
 }
 
-// MustGetBool 使用JSONPath获取布尔值，如果失败则panic
-// MustGetBool gets boolean value using JSONPath, panics on failure
+// MustGetBool 使用JSONPath获取布尔值，如果失败则返回false
+// MustGetBool gets boolean value using JSONPath, returns false on failure
 //
-// 警告 Warning: 此方法在失败时会panic，仅在确信数据正确时使用
-// This method panics on failure, use only when you're certain the data is correct
+// 注意 Note: 此方法在失败时返回false，作为更安全的替代方案
+// This method returns false on failure as a safer alternative
 // 推荐使用TryGetBool作为更安全的替代方案 / Consider using TryGetBool as a safer alternative
 func MustGetBool(root IValue, path string) bool {
 	result, err := GetBool(root, path)
 	if err != nil {
-		panic(err)
+		return false
 	}
 	return result
 }
 
-// MustGetObject 使用JSONPath获取对象值，如果失败则panic
-// MustGetObject gets object value using JSONPath, panics on failure
+// MustGetObject 使用JSONPath获取对象值，如果失败则返回空对象
+// MustGetObject gets object value using JSONPath, returns empty object on failure
 //
-// 警告 Warning: 此方法在失败时会panic，仅在确信数据正确时使用
-// This method panics on failure, use only when you're certain the data is correct
+// 注意 Note: 此方法在失败时返回空对象，作为更安全的替代方案
+// This method returns empty object on failure as a safer alternative
 // 推荐使用TryGetObject作为更安全的替代方案 / Consider using TryGetObject as a safer alternative
 func MustGetObject(root IValue, path string) IObject {
 	result, err := GetObject(root, path)
 	if err != nil {
-		panic(err)
+		return CreateObject()
 	}
 	return result
 }
 
-// MustGetArray 使用JSONPath获取数组值，如果失败则panic
-// MustGetArray gets array value using JSONPath, panics on failure
+// MustGetArray 使用JSONPath获取数组值，如果失败则返回空数组
+// MustGetArray gets array value using JSONPath, returns empty array on failure
 //
-// 警告 Warning: 此方法在失败时会panic，仅在确信数据正确时使用
-// This method panics on failure, use only when you're certain the data is correct
+// 注意 Note: 此方法在失败时返回空数组，作为更安全的替代方案
+// This method returns empty array on failure as a safer alternative
 func MustGetArray(root IValue, path string) IArray {
 	result, err := GetArray(root, path)
 	if err != nil {
-		panic(err)
+		return CreateArray()
 	}
 	return result
 }
@@ -1121,8 +1396,8 @@ func CreateNumber(value interface{}) IValue {
 	return defaultFactory.CreateNumber(value)
 }
 
-// MustCreateNumber 创建数字值，如果失败则panic
-// MustCreateNumber creates a number value, panics on failure
+// MustCreateNumber 创建数字值，如果失败则返回null值
+// MustCreateNumber creates a number value, returns null value on failure
 func MustCreateNumber(value interface{}) IValue {
 	return CreateNumber(value)
 }
@@ -1165,12 +1440,12 @@ func CreateFromRaw(value interface{}) (IValue, error) {
 	return defaultFactory.CreateFromRaw(value)
 }
 
-// MustCreateFromRaw 从原始数据创建JSON值，如果失败则panic
-// MustCreateFromRaw creates JSON value from raw data, panics on failure
+// MustCreateFromRaw 从原始数据创建JSON值，如果失败则返回null值
+// MustCreateFromRaw creates JSON value from raw data, returns null value on failure
 func MustCreateFromRaw(value interface{}) IValue {
 	result, err := CreateFromRaw(value)
 	if err != nil {
-		panic(err)
+		return CreateNull()
 	}
 	return result
 }
@@ -1386,92 +1661,92 @@ func ToArray(value IValue) (IArray, error) {
 // 便捷的Must版本转换函数
 // Convenient Must version conversion functions
 
-// MustToString 转换为字符串，失败则panic
-// MustToString converts to string, panics on failure
+// MustToString 转换为字符串，如果失败则返回空字符串
+// MustToString converts to string, returns empty string on failure
 func MustToString(value IValue) string {
 	result, err := ToString(value)
 	if err != nil {
-		panic(err)
+		return ""
 	}
 	return result
 }
 
-// MustToInt 转换为整数，失败则panic
-// MustToInt converts to integer, panics on failure
+// MustToInt 转换为整数，如果失败则返回0
+// MustToInt converts to integer, returns 0 on failure
 func MustToInt(value IValue) int {
 	result, err := ToInt(value)
 	if err != nil {
-		panic(err)
+		return 0
 	}
 	return result
 }
 
-// MustToInt64 转换为64位整数，失败则panic
-// MustToInt64 converts to 64-bit integer, panics on failure
+// MustToInt64 转换为64位整数，如果失败则返回0
+// MustToInt64 converts to 64-bit integer, returns 0 on failure
 func MustToInt64(value IValue) int64 {
 	result, err := ToInt64(value)
 	if err != nil {
-		panic(err)
+		return 0
 	}
 	return result
 }
 
-// MustToFloat64 转换为64位浮点数，失败则panic
-// MustToFloat64 converts to 64-bit float, panics on failure
+// MustToFloat64 转换为64位浮点数，如果失败则返回0.0
+// MustToFloat64 converts to 64-bit float, returns 0.0 on failure
 func MustToFloat64(value IValue) float64 {
 	result, err := ToFloat64(value)
 	if err != nil {
-		panic(err)
+		return 0.0
 	}
 	return result
 }
 
-// MustToBool 转换为布尔值，失败则panic
-// MustToBool converts to boolean, panics on failure
+// MustToBool 转换为布尔值，如果失败则返回false
+// MustToBool converts to boolean, returns false on failure
 func MustToBool(value IValue) bool {
 	result, err := ToBool(value)
 	if err != nil {
-		panic(err)
+		return false
 	}
 	return result
 }
 
-// MustToTime 转换为时间，失败则panic
-// MustToTime converts to time, panics on failure
+// MustToTime 转换为时间，如果失败则返回零值时间
+// MustToTime converts to time, returns zero time on failure
 func MustToTime(value IValue) time.Time {
 	result, err := ToTime(value)
 	if err != nil {
-		panic(err)
+		return time.Time{}
 	}
 	return result
 }
 
-// MustToBytes 转换为字节数组，失败则panic
-// MustToBytes converts to byte array, panics on failure
+// MustToBytes 转换为字节数组，如果失败则返回nil
+// MustToBytes converts to byte array, returns nil on failure
 func MustToBytes(value IValue) []byte {
 	result, err := ToBytes(value)
 	if err != nil {
-		panic(err)
+		return nil
 	}
 	return result
 }
 
-// MustToObject 转换为对象，失败则panic
-// MustToObject converts to object, panics on failure
+// MustToObject 转换为对象，如果失败则返回空对象
+// MustToObject converts to object, returns empty object on failure
 func MustToObject(value IValue) IObject {
 	result, err := ToObject(value)
 	if err != nil {
-		panic(err)
+		return CreateObject()
 	}
 	return result
 }
 
-// MustToArray 转换为数组，失败则panic
-// MustToArray converts to array, panics on failure
+// MustToArray 转换为数组，如果失败则返回空数组
+// MustToArray converts to array, returns empty array on failure
 func MustToArray(value IValue) IArray {
 	result, err := ToArray(value)
 	if err != nil {
-		panic(err)
+		return CreateArray()
 	}
 	return result
 }

@@ -200,6 +200,8 @@ type IPathQuery interface {
 - **Delete(root IValue, path string)** - 根据路径删除值
 - **Exists(root IValue, path string)** - 检查路径是否存在
 - **Count(root IValue, path string)** - 统计匹配路径的数量
+- **Filter(root IValue, path string, predicate func(IValue) bool)** - 根据条件过滤JSONPath查询结果
+- **MustFilter(root IValue, path string, predicate func(IValue) bool)** - 根据条件过滤JSONPath查询结果，失败时返回空数组
 
 ## 全局函数 / Global Functions
 
@@ -212,10 +214,10 @@ func Parse(data []byte) (IValue, error)
 // 解析JSON字符串
 func ParseString(data string) (IValue, error)
 
-// 解析JSON，失败时panic
+// 解析JSON，失败时返回CreateNull()
 func MustParse(data []byte) IValue
 
-// 解析JSON字符串，失败时panic
+// 解析JSON字符串，失败时返回CreateNull()
 func MustParseString(data string) IValue
 ```
 
@@ -228,22 +230,22 @@ func Serialize(value IValue) ([]byte, error)
 // 序列化为字符串
 func SerializeToString(value IValue) (string, error)
 
-// 序列化，失败时panic
+// 序列化，失败时返回空字节数组
 func MustSerialize(value IValue) []byte
 
-// 序列化为字符串，失败时panic
+// 序列化为字符串，失败时返回空字符串
 func MustSerializeToString(value IValue) string
 
 // 美化格式序列化
 func Pretty(value IValue) (string, error)
 
-// 美化格式序列化，失败时panic
+// 美化格式序列化，失败时返回空字符串
 func MustPretty(value IValue) string
 
 // 紧凑格式序列化
 func Compact(value IValue) (string, error)
 
-// 紧凑格式序列化，失败时panic
+// 紧凑格式序列化，失败时返回空字符串
 func MustCompact(value IValue) string
 ```
 
@@ -253,7 +255,7 @@ func MustCompact(value IValue) string
 // 根据路径获取值
 func Get(root IValue, path string) (IValue, error)
 
-// 根据路径获取值，失败时panic
+// 根据路径获取值，失败时返回CreateNull()
 func MustGet(root IValue, path string) IValue
 
 // 根据路径获取所有匹配的值
@@ -277,38 +279,47 @@ func Count(root IValue, path string) int
 ```go
 // 转换为字符串
 func ToString(value IValue) (string, error)
+// 转换为字符串，失败时返回空字符串
 func MustToString(value IValue) string
 
 // 转换为整数
 func ToInt(value IValue) (int, error)
+// 转换为整数，失败时返回0
 func MustToInt(value IValue) int
 
 // 转换为64位整数
 func ToInt64(value IValue) (int64, error)
+// 转换为64位整数，失败时返回0
 func MustToInt64(value IValue) int64
 
 // 转换为64位浮点数
 func ToFloat64(value IValue) (float64, error)
+// 转换为64位浮点数，失败时返回0.0
 func MustToFloat64(value IValue) float64
 
 // 转换为布尔值
 func ToBool(value IValue) (bool, error)
+// 转换为布尔值，失败时返回false
 func MustToBool(value IValue) bool
 
 // 转换为时间
 func ToTime(value IValue) (time.Time, error)
+// 转换为时间，失败时返回time.Time{}
 func MustToTime(value IValue) time.Time
 
 // 转换为字节数组
 func ToBytes(value IValue) ([]byte, error)
+// 转换为字节数组，失败时返回nil
 func MustToBytes(value IValue) []byte
 
 // 转换为对象
 func ToObject(value IValue) (IObject, error)
+// 转换为对象，失败时返回CreateObject()
 func MustToObject(value IValue) IObject
 
 // 转换为数组
 func ToArray(value IValue) (IArray, error)
+// 转换为数组，失败时返回CreateArray()
 func MustToArray(value IValue) IArray
 ```
 
@@ -325,6 +336,7 @@ func CreateString(value string) IValue
 
 // 创建数字值
 func CreateNumber(value interface{}) IValue
+// 创建数字值，失败时返回CreateNull()
 func MustCreateNumber(value interface{}) IValue
 
 // 创建布尔值
@@ -340,6 +352,7 @@ func CreateArrayWithCapacity(capacity int) IArray
 
 // 从Go原生类型创建值
 func CreateFromRaw(value interface{}) (IValue, error)
+// 从Go原生类型创建值，失败时返回CreateNull()
 func MustCreateFromRaw(value interface{}) IValue
 ```
 
@@ -530,6 +543,57 @@ func SetDefaultFactory(factory IValueFactory)
 func SetDefaultParser(parser IParser)
 func SetDefaultSerializer(serializer ISerializer)
 func SetDefaultPathQuery(pathQuery IPathQuery)
+```
+
+## Must方法行为说明 / Must Methods Behavior
+
+### 概述 / Overview
+
+所有以`Must`开头的方法都采用了安全的错误处理策略，在遇到错误时不会引发panic，而是返回对应类型的默认零值。这种设计使得代码更加健壮，避免了因为数据异常导致的程序崩溃。
+
+All methods starting with `Must` adopt a safe error handling strategy. Instead of panicking when encountering errors, they return the default zero value of the corresponding type. This design makes the code more robust and avoids program crashes due to data anomalies.
+
+### 返回值规则 / Return Value Rules
+
+| 方法类型 / Method Type | 错误时返回值 / Return Value on Error | 示例 / Example |
+|----------------------|-----------------------------------|----------------|
+| 解析方法 / Parse Methods | `CreateNull()` | `MustParse`, `MustParseString` |
+| 序列化方法 / Serialize Methods | 空字节数组或空字符串 / Empty bytes or string | `MustSerialize`, `MustSerializeToString` |
+| 获取方法 / Get Methods | 对应类型的零值 / Zero value of type | `MustGetString` → `""`, `MustGetInt` → `0` |
+| 转换方法 / Convert Methods | 对应类型的零值 / Zero value of type | `MustToString` → `""`, `MustToBool` → `false` |
+| 创建方法 / Create Methods | `CreateNull()` | `MustCreateFromRaw`, `MustCreateNumber` |
+| 对象/数组方法 / Object/Array Methods | 新的空对象/数组 / New empty object/array | `MustGetObject` → `CreateObject()` |
+
+### 使用建议 / Usage Recommendations
+
+1. **适用场景**：当你确信数据格式正确，或者希望在数据异常时使用默认值继续执行时，使用Must方法。
+2. **错误检查**：如果需要明确的错误信息，建议使用对应的非Must版本方法。
+3. **类型安全**：Must方法返回的默认值保证了类型安全，可以直接使用而无需额外的nil检查。
+
+1. **Applicable scenarios**: Use Must methods when you are confident about the data format, or when you want to continue execution with default values in case of data anomalies.
+2. **Error checking**: If you need explicit error information, it's recommended to use the corresponding non-Must version methods.
+3. **Type safety**: The default values returned by Must methods guarantee type safety and can be used directly without additional nil checks.
+
+### 示例代码 / Example Code
+
+```go
+// 传统方式：需要错误处理
+value, err := GetString(root, "$.user.name")
+if err != nil {
+    value = "Unknown" // 手动设置默认值
+}
+
+// Must方式：自动返回默认值
+value := MustGetString(root, "$.user.name") // 错误时自动返回 ""
+if value == "" {
+    value = "Unknown" // 可选：自定义默认值
+}
+
+// 解析示例
+data := MustParse(invalidJSON) // 错误时返回 CreateNull()
+if data.IsNull() {
+    // 处理解析失败的情况
+}
 ```
 
 ## 错误处理 / Error Handling

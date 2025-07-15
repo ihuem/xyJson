@@ -111,10 +111,10 @@ func main3() {
 	}
 	fmt.Println()
 
-	// 3. 最简洁的方式：Must版本（适用于确信路径存在的场景）
-	fmt.Println("3. 最简洁的方式（Must版本，适用于确信路径存在的场景）:")
+	// 3. 最简洁的方式：Must版本（失败时返回默认零值）
+	fmt.Println("3. 最简洁的方式（Must版本，失败时返回默认零值）:")
 
-	// 注意：Must版本在路径不存在或转换失败时会panic，只在确信数据正确时使用
+	// 注意：Must版本在路径不存在或转换失败时返回默认零值，代码更简洁安全
 	productName := xyJson.MustGetString(root, "$.product.name")
 	productPrice := xyJson.MustGetFloat64(root, "$.product.price")
 	productQuantity := xyJson.MustGetInt(root, "$.product.quantity")
@@ -152,6 +152,6 @@ func main3() {
 	fmt.Println("1. 无需手动类型断言")
 	fmt.Println("2. 代码更简洁易读")
 	fmt.Println("3. 类型安全")
-	fmt.Println("4. 提供Must版本用于简化确定场景")
+	fmt.Println("4. 提供Must版本用于简化代码（失败时返回默认零值）")
 	fmt.Println("5. 保持与原有API的完全兼容性")
 }

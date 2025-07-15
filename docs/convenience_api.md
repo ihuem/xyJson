@@ -55,12 +55,13 @@ if name, ok := xyJson.TryGetString(root, "$.user.name"); ok {
 }
 ```
 
-### 3. MustGet系列方法 ⚠️ 谨慎使用
-直接返回值，失败时panic，仅在确信数据正确时使用：
+### 3. MustGet系列方法 ✅ 安全使用
+直接返回值，失败时返回对应类型的默认零值，代码更加简洁：
 
 ```go
-// 警告：失败时会panic
-name := xyJson.MustGetString(root, "$.user.name")
+// 失败时返回默认零值（如空字符串、0等）
+name := xyJson.MustGetString(root, "$.user.name") // 失败时返回 ""
+age := xyJson.MustGetInt(root, "$.user.age")     // 失败时返回 0
 ```
 
 ### 4. GetWithDefault系列方法 ✨ 便利选择
@@ -90,11 +91,11 @@ port := xyJson.GetIntWithDefault(root, "$.server.port", 8080)
 
 | 特性 | Get系列 | TryGet系列 | Must系列 | GetWithDefault系列 |
 |------|---------|------------|----------|--------------------|
-| **安全性** | ✅ 安全 | ✅ 最安全 | ❌ 会panic | ✅ 安全 |
-| **错误信息** | ✅ 详细 | ❌ 无详细信息 | ❌ 直接panic | ❌ 无详细信息 |
+| **安全性** | ✅ 安全 | ✅ 最安全 | ✅ 安全 | ✅ 安全 |
+| **错误信息** | ✅ 详细 | ❌ 无详细信息 | ❌ 返回默认值 | ❌ 无详细信息 |
 | **代码简洁性** | 🔶 中等 | ✅ 简洁 | ✅ 最简洁 | ✅ 最简洁 |
-| **推荐场景** | 调试、详细错误处理 | 日常使用、生产环境 | 原型开发、确信数据正确 | 可选字段、配置默认值 |
-| **失败处理** | 返回error | 返回false | panic | 返回默认值 |
+| **推荐场景** | 调试、详细错误处理 | 日常使用、生产环境 | 简洁代码、容错处理 | 可选字段、配置默认值 |
+| **失败处理** | 返回error | 返回false | 返回默认零值 | 返回默认值 |
 | **零值返回** | 需检查error | 自动返回零值 | 不适用 | 返回指定默认值 |
 
 ## 使用示例
@@ -171,12 +172,19 @@ func main() {
         fmt.Println("城市信息不存在") // 这行会被执行
     }
 
-    // 3. Must系列方法 - 谨慎使用
-    fmt.Println("\n=== Must系列方法（谨慎使用） ===")
-    // 仅在确信数据存在时使用
-    userName := xyJson.MustGetString(root, "$.user.name")
-    userAge := xyJson.MustGetInt(root, "$.user.age")
+    // 3. Must系列方法 - 安全简洁
+    fmt.Println("\n=== Must系列方法（安全简洁） ===")
+    // 失败时自动返回默认零值，代码更简洁
+    userName := xyJson.MustGetString(root, "$.user.name") // 失败时返回 ""
+    userAge := xyJson.MustGetInt(root, "$.user.age")       // 失败时返回 0
     fmt.Printf("用户: %s, %d岁\n", userName, userAge)
+    
+    // 处理可能不存在的字段
+    city := xyJson.MustGetString(root, "$.user.city") // 不存在时返回 ""
+    if city == "" {
+        city = "未知城市"
+    }
+    fmt.Printf("城市: %s\n", city)
 
     // 获取复杂类型
     fmt.Println("\n=== 复杂类型处理 ===")
@@ -241,16 +249,27 @@ func demonstrateTryGetMethods(root xyJson.IValue) {
     }
 }
 
-// 使用Must版本（适用于确信数据正确的场景）
+// 使用Must版本（简洁的容错处理）
 func processUserDataWithMust(root xyJson.IValue) {
-    // 当您确信这些路径存在且类型正确时，可以使用Must版本
-    name := xyJson.MustGetString(root, "$.user.name")
-    age := xyJson.MustGetInt(root, "$.user.age")
-    height := xyJson.MustGetFloat64(root, "$.user.height")
-    active := xyJson.MustGetBool(root, "$.user.active")
+    // Must方法失败时返回默认零值，代码更简洁
+    name := xyJson.MustGetString(root, "$.user.name")     // 失败时返回 ""
+    age := xyJson.MustGetInt(root, "$.user.age")           // 失败时返回 0
+    height := xyJson.MustGetFloat64(root, "$.user.height") // 失败时返回 0.0
+    active := xyJson.MustGetBool(root, "$.user.active")    // 失败时返回 false
 
+    // 可以直接使用，无需担心panic
     fmt.Printf("User: %s, Age: %d, Height: %.1f, Active: %t\n", 
                name, age, height, active)
+    
+    // 处理默认值
+    if name == "" {
+        name = "匿名用户"
+    }
+    if age == 0 {
+        age = 18 // 默认年龄
+    }
+    
+    fmt.Printf("处理后: %s, %d岁\n", name, age)
 }
 ```
 

@@ -421,12 +421,12 @@ func (b *JSONBuilder) Build() (IValue, error) {
 	return b.root, nil
 }
 
-// MustBuild 构建JSON对象，如果有错误则panic
-// MustBuild builds the JSON object, panics if there's an error
+// MustBuild 构建JSON对象，如果有错误则返回null值
+// MustBuild builds the JSON object, returns null value if there's an error
 func (b *JSONBuilder) MustBuild() IValue {
 	result, err := b.Build()
 	if err != nil {
-		panic(err)
+		return CreateNull()
 	}
 	return result
 }
