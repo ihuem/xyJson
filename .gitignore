@@ -1,1 +1,38 @@
+# 当前已有
 /.trae/
+
+# 建议添加的Go项目常见忽略规则
+# 编译输出
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# 测试覆盖率文件
+*.out
+coverage.txt
+
+# Go工作区文件
+go.work
+go.work.sum
+
+# 依赖模块缓存
+/vendor/
+
+# IDE文件
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+
+# 日志文件
+*.log
+
+# 环境配置
+.env
+.env.local
