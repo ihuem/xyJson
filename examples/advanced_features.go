@@ -4,10 +4,11 @@ package main
 
 import (
 	"fmt"
-	"github/ihuem/xyJson"
 	"log"
 	"sync"
 	"time"
+
+	"github.com/ihuem/xyJson"
 )
 
 func main2() {

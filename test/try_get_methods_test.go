@@ -2,7 +2,8 @@ package test
 
 import (
 	"testing"
-	xyJson "github/ihuem/xyJson"
+
+	xyJson "github.com/ihuem/xyJson"
 )
 
 // TestTryGetMethods 测试TryGetXXX系列方法

@@ -2,7 +2,8 @@ package test
 
 import (
 	"testing"
-	xyJson "github/ihuem/xyJson"
+
+	xyJson "github.com/ihuem/xyJson"
 )
 
 // TestGetWithDefaultMethods 测试GetXXXWithDefault系列方法

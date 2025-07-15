@@ -107,7 +107,7 @@ package main
 import (
     "fmt"
     "log"
-    xyJson "github/ihuem/xyJson"
+    xyJson "github.com/ihuem/xyJson"
 )
 
 func main() {
@@ -767,7 +767,7 @@ package main
 import (
     "fmt"
     "log"
-    xyJson "github/ihuem/xyJson"
+    xyJson "github.com/ihuem/xyJson"
 )
 
 func main() {

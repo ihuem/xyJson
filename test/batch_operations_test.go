@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	xyJson "github/ihuem/xyJson"
+	xyJson "github.com/ihuem/xyJson"
 )
 
 // TestGetBatch 测试批量获取功能

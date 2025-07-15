@@ -1,8 +1,9 @@
 package test
 
 import (
-	xyJson "github/ihuem/xyJson"
 	"testing"
+
+	xyJson "github.com/ihuem/xyJson"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

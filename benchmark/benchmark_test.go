@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	xyJson "github/ihuem/xyJson"
-	"github/ihuem/xyJson/test/testutil"
+	xyJson "github.com/ihuem/xyJson"
+	"github.com/ihuem/xyJson/test/testutil"
 )
 
 // 基准测试数据
@@ -18,7 +18,7 @@ var (
 	// 小型JSON数据
 	// Small JSON data
 	smallJSON = `{"name":"张三","age":25,"active":true}`
-	
+
 	// 中型JSON数据
 	// Medium JSON data
 	mediumJSON = `{
@@ -34,7 +34,7 @@ var (
 			"timestamp": "2024-01-01T00:00:00Z"
 		}
 	}`
-	
+
 	// 大型JSON数据（动态生成）
 	// Large JSON data (dynamically generated)
 	largeJSON string
@@ -60,7 +60,7 @@ func BenchmarkParseSmall(b *testing.B) {
 			}
 		}
 	})
-	
+
 	b.Run("StandardLib", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -85,7 +85,7 @@ func BenchmarkParseMedium(b *testing.B) {
 			}
 		}
 	})
-	
+
 	b.Run("StandardLib", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -110,7 +110,7 @@ func BenchmarkParseLarge(b *testing.B) {
 			}
 		}
 	})
-	
+
 	b.Run("StandardLib", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -131,14 +131,14 @@ func BenchmarkSerializeSmall(b *testing.B) {
 	xyObj.Set("name", "张三")
 	xyObj.Set("age", 25)
 	xyObj.Set("active", true)
-	
+
 	// 准备标准库对象
 	stdObj := map[string]interface{}{
 		"name":   "张三",
 		"age":    25,
 		"active": true,
 	}
-	
+
 	b.Run("xyJson", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -148,7 +148,7 @@ func BenchmarkSerializeSmall(b *testing.B) {
 			}
 		}
 	})
-	
+
 	b.Run("StandardLib", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -166,7 +166,7 @@ func BenchmarkSerializeMedium(b *testing.B) {
 	// 准备xyJson对象
 	xyObj := xyJson.CreateObject()
 	users := xyJson.CreateArray()
-	
+
 	for i := 1; i <= 3; i++ {
 		user := xyJson.CreateObject()
 		user.Set("id", i)
@@ -176,16 +176,16 @@ func BenchmarkSerializeMedium(b *testing.B) {
 		user.Set("active", i%2 == 1)
 		users.Append(user)
 	}
-	
+
 	metadata := xyJson.CreateObject()
 	metadata.Set("total", 3)
 	metadata.Set("page", 1)
 	metadata.Set("limit", 10)
 	metadata.Set("timestamp", "2024-01-01T00:00:00Z")
-	
+
 	xyObj.Set("users", users)
 	xyObj.Set("metadata", metadata)
-	
+
 	// 准备标准库对象
 	stdObj := map[string]interface{}{
 		"users": []map[string]interface{}{
@@ -200,7 +200,7 @@ func BenchmarkSerializeMedium(b *testing.B) {
 			"timestamp": "2024-01-01T00:00:00Z",
 		},
 	}
-	
+
 	b.Run("xyJson", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -210,7 +210,7 @@ func BenchmarkSerializeMedium(b *testing.B) {
 			}
 		}
 	})
-	
+
 	b.Run("StandardLib", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -227,12 +227,12 @@ func BenchmarkSerializeMedium(b *testing.B) {
 func BenchmarkJSONPathQuery(b *testing.B) {
 	generator := testutil.NewTestDataGenerator()
 	jsonStr := generator.GenerateJSONPathTestData()
-	
+
 	root, err := xyJson.ParseString(jsonStr)
 	if err != nil {
 		b.Fatal(err)
 	}
-	
+
 	b.Run("SimpleQuery", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -242,7 +242,7 @@ func BenchmarkJSONPathQuery(b *testing.B) {
 			}
 		}
 	})
-	
+
 	b.Run("ArrayQuery", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -252,7 +252,7 @@ func BenchmarkJSONPathQuery(b *testing.B) {
 			}
 		}
 	})
-	
+
 	b.Run("WildcardQuery", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -262,7 +262,7 @@ func BenchmarkJSONPathQuery(b *testing.B) {
 			}
 		}
 	})
-	
+
 	b.Run("FilterQuery", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -272,14 +272,14 @@ func BenchmarkJSONPathQuery(b *testing.B) {
 			}
 		}
 	})
-	
+
 	b.Run("ExistsCheck", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			_ = xyJson.Exists(root, "$.store.bicycle")
 		}
 	})
-	
+
 	b.Run("CountQuery", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -301,12 +301,12 @@ func BenchmarkMemoryUsage(b *testing.B) {
 			}
 		}
 	})
-	
+
 	b.Run("SerializeMemory", func(b *testing.B) {
 		obj := xyJson.CreateObject()
 		obj.Set("name", "测试")
 		obj.Set("value", 42)
-		
+
 		b.ReportAllocs()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -316,7 +316,7 @@ func BenchmarkMemoryUsage(b *testing.B) {
 			}
 		}
 	})
-	
+
 	b.Run("ObjectCreationMemory", func(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
@@ -327,7 +327,7 @@ func BenchmarkMemoryUsage(b *testing.B) {
 			obj.Set("active", i%2 == 0)
 		}
 	})
-	
+
 	b.Run("ArrayCreationMemory", func(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
@@ -354,12 +354,12 @@ func BenchmarkConcurrentOperations(b *testing.B) {
 			}
 		})
 	})
-	
+
 	b.Run("ConcurrentSerialize", func(b *testing.B) {
 		obj := xyJson.CreateObject()
 		obj.Set("name", "测试")
 		obj.Set("value", 42)
-		
+
 		b.ResetTimer()
 		b.RunParallel(func(pb *testing.PB) {
 			for pb.Next() {
@@ -370,16 +370,16 @@ func BenchmarkConcurrentOperations(b *testing.B) {
 			}
 		})
 	})
-	
+
 	b.Run("ConcurrentJSONPath", func(b *testing.B) {
 		generator := testutil.NewTestDataGenerator()
 		jsonStr := generator.GenerateJSONPathTestData()
-		
+
 		root, err := xyJson.ParseString(jsonStr)
 		if err != nil {
 			b.Fatal(err)
 		}
-		
+
 		b.ResetTimer()
 		b.RunParallel(func(pb *testing.PB) {
 			for pb.Next() {
@@ -396,7 +396,7 @@ func BenchmarkConcurrentOperations(b *testing.B) {
 // BenchmarkObjectPool benchmarks object pool
 func BenchmarkObjectPool(b *testing.B) {
 	pool := xyJson.NewObjectPool()
-	
+
 	b.Run("WithPool", func(b *testing.B) {
 		// pool.SetEnabled(true) // 删除不存在的方法调用
 		b.ResetTimer()
@@ -406,7 +406,7 @@ func BenchmarkObjectPool(b *testing.B) {
 			pool.PutObject(obj)
 		}
 	})
-	
+
 	b.Run("WithoutPool", func(b *testing.B) {
 		// pool.SetEnabled(false) // 删除不存在的方法调用
 		b.ResetTimer()
@@ -417,7 +417,7 @@ func BenchmarkObjectPool(b *testing.B) {
 		}
 		// pool.SetEnabled(true) // 删除不存在的方法调用
 	})
-	
+
 	b.Run("ConcurrentPool", func(b *testing.B) {
 		// pool.SetEnabled(true) // 删除不存在的方法调用
 		b.ResetTimer()
@@ -435,7 +435,7 @@ func BenchmarkObjectPool(b *testing.B) {
 // BenchmarkPerformanceMonitoring benchmarks performance monitoring
 func BenchmarkPerformanceMonitoring(b *testing.B) {
 	monitor := xyJson.NewPerformanceMonitor()
-	
+
 	b.Run("WithMonitoring", func(b *testing.B) {
 		monitor.Enable()
 		b.ResetTimer()
@@ -448,7 +448,7 @@ func BenchmarkPerformanceMonitoring(b *testing.B) {
 			timer.End()
 		}
 	})
-	
+
 	b.Run("WithoutMonitoring", func(b *testing.B) {
 		monitor.Disable()
 		b.ResetTimer()
@@ -473,7 +473,7 @@ func BenchmarkStringOperations(b *testing.B) {
 		"包含Unicode字符的字符串：🚀✨🎉",
 		strings.Repeat("长字符串测试", 100),
 	}
-	
+
 	for i, str := range testStrings {
 		b.Run(fmt.Sprintf("String%d", i+1), func(b *testing.B) {
 			value := xyJson.CreateString(str)
@@ -494,7 +494,7 @@ func BenchmarkNumberOperations(b *testing.B) {
 		-123456789,
 		1.23456789e10,
 	}
-	
+
 	for i, num := range testNumbers {
 		b.Run(fmt.Sprintf("Number%d", i+1), func(b *testing.B) {
 			value := xyJson.CreateNumber(num)
@@ -519,14 +519,14 @@ func BenchmarkComplexOperations(b *testing.B) {
 			if err != nil {
 				b.Fatal(err)
 			}
-			
+
 			_, err = xyJson.Get(root, "$.users[0].name")
 			if err != nil {
 				b.Fatal(err)
 			}
 		}
 	})
-	
+
 	b.Run("BuildAndSerialize", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -534,20 +534,20 @@ func BenchmarkComplexOperations(b *testing.B) {
 			obj.Set("id", i)
 			obj.Set("name", fmt.Sprintf("用户%d", i))
 			obj.Set("active", i%2 == 0)
-			
+
 			arr := xyJson.CreateArray()
 			for j := 0; j < 5; j++ {
 				arr.Append(j)
 			}
 			obj.Set("numbers", arr)
-			
+
 			_, err := xyJson.SerializeToString(obj)
 			if err != nil {
 				b.Fatal(err)
 			}
 		}
 	})
-	
+
 	b.Run("RoundTrip", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -556,13 +556,13 @@ func BenchmarkComplexOperations(b *testing.B) {
 			if err != nil {
 				b.Fatal(err)
 			}
-			
+
 			// 修改
 			err = xyJson.Set(root, "$.metadata.processed", true)
 			if err != nil {
 				b.Fatal(err)
 			}
-			
+
 			// 序列化
 			_, err = xyJson.SerializeToString(root)
 			if err != nil {
@@ -576,7 +576,7 @@ func BenchmarkComplexOperations(b *testing.B) {
 // BenchmarkMemoryProfiler benchmarks memory profiler
 func BenchmarkMemoryProfiler(b *testing.B) {
 	profiler := xyJson.NewMemoryProfiler(100, 10*time.Millisecond)
-	
+
 	b.Run("WithProfiler", func(b *testing.B) {
 		profiler.Start()
 		b.ResetTimer()
@@ -588,7 +588,7 @@ func BenchmarkMemoryProfiler(b *testing.B) {
 		}
 		profiler.Stop()
 	})
-	
+
 	b.Run("WithoutProfiler", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -611,24 +611,24 @@ func BenchmarkGCPressure(b *testing.B) {
 				obj := xyJson.CreateObject()
 				obj.Set("id", j)
 				obj.Set("data", strings.Repeat("x", 100))
-				
+
 				_, err := xyJson.SerializeToString(obj)
 				if err != nil {
 					b.Fatal(err)
 				}
 			}
-			
+
 			// 强制GC
 			if i%10 == 0 {
 				runtime.GC()
 			}
 		}
 	})
-	
+
 	b.Run("WithObjectPool", func(b *testing.B) {
 		pool := xyJson.NewObjectPool()
 		// pool.SetEnabled(true) // 删除不存在的方法调用
-		
+
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			// 使用对象池减少分配
@@ -636,15 +636,15 @@ func BenchmarkGCPressure(b *testing.B) {
 				obj := pool.GetObject()
 				obj.Set("id", j)
 				obj.Set("data", strings.Repeat("x", 100))
-				
+
 				_, err := xyJson.SerializeToString(obj)
 				if err != nil {
 					b.Fatal(err)
 				}
-				
+
 				pool.PutObject(obj)
 			}
-			
+
 			// 强制GC
 			if i%10 == 0 {
 				runtime.GC()
@@ -658,7 +658,7 @@ func BenchmarkGCPressure(b *testing.B) {
 func runBenchmarkSuite() {
 	fmt.Println("=== xyJson 性能基准测试套件 ===")
 	fmt.Println("=== xyJson Performance Benchmark Suite ===")
-	
+
 	// 运行所有基准测试
 	testing.Benchmark(BenchmarkParseSmall)
 	testing.Benchmark(BenchmarkParseMedium)
@@ -671,7 +671,7 @@ func runBenchmarkSuite() {
 	testing.Benchmark(BenchmarkObjectPool)
 	testing.Benchmark(BenchmarkPerformanceMonitoring)
 	testing.Benchmark(BenchmarkComplexOperations)
-	
+
 	fmt.Println("\n=== 基准测试完成 ===")
 	fmt.Println("=== Benchmark Tests Completed ===")
 }

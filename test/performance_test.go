@@ -7,8 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	xyJson "github/ihuem/xyJson"
-	"github/ihuem/xyJson/test/testutil"
+	xyJson "github.com/ihuem/xyJson"
+	"github.com/ihuem/xyJson/test/testutil"
 )
 
 // TestPerformanceMonitorBasic 测试性能监控器基本功能

@@ -8,11 +8,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	xyJson "github/ihuem/xyJson"
-	"github/ihuem/xyJson/test/testutil"
+	xyJson "github.com/ihuem/xyJson"
+	"github.com/ihuem/xyJson/test/testutil"
 )
-
-
 
 // TestObjectPoolBasic 测试对象池基本功能
 // TestObjectPoolBasic tests basic object pool functionality

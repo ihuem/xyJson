@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	xyJson "github/ihuem/xyJson"
 	"log"
+
+	xyJson "github.com/ihuem/xyJson"
 )
 
 func main3() {
@@ -58,7 +59,7 @@ func main3() {
 
 	// 2. 新的便利方式：直接获取类型化的值
 	fmt.Println("2. 新的便利方式（直接获取类型化值）:")
-	
+
 	// 获取字符串值
 	if name, err := xyJson.GetString(root, "$.user.name"); err == nil {
 		fmt.Printf("  用户姓名: %s\n", name)
@@ -112,13 +113,13 @@ func main3() {
 
 	// 3. 最简洁的方式：Must版本（适用于确信路径存在的场景）
 	fmt.Println("3. 最简洁的方式（Must版本，适用于确信路径存在的场景）:")
-	
+
 	// 注意：Must版本在路径不存在或转换失败时会panic，只在确信数据正确时使用
 	productName := xyJson.MustGetString(root, "$.product.name")
 	productPrice := xyJson.MustGetFloat64(root, "$.product.price")
 	productQuantity := xyJson.MustGetInt(root, "$.product.quantity")
 	inStock := xyJson.MustGetBool(root, "$.product.inStock")
-	
+
 	fmt.Printf("  产品: %s\n", productName)
 	fmt.Printf("  价格: $%.2f\n", productPrice)
 	fmt.Printf("  库存: %d件\n", productQuantity)
@@ -127,12 +128,12 @@ func main3() {
 
 	// 4. 错误处理示例
 	fmt.Println("4. 错误处理示例:")
-	
+
 	// 尝试获取不存在的路径
 	if _, err := xyJson.GetString(root, "$.user.nonexistent"); err != nil {
 		fmt.Printf("  预期的错误 - 路径不存在: %v\n", err)
 	}
-	
+
 	// 尝试进行错误的类型转换
 	if _, err := xyJson.GetInt(root, "$.user.name"); err != nil {
 		fmt.Printf("  预期的错误 - 类型转换失败: %v\n", err)

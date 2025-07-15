@@ -2,7 +2,8 @@ package main
 
 import (
 	"fmt"
-	xyJson "github/ihuem/xyJson"
+
+	xyJson "github.com/ihuem/xyJson"
 )
 
 func main4() {

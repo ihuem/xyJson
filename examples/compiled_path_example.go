@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	xyJson "github/ihuem/xyJson"
 	"log"
 	"time"
+
+	xyJson "github.com/ihuem/xyJson"
 )
 
 // demonstrateBasicCompiledPath 演示基本的预编译路径使用

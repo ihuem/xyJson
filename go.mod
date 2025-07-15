@@ -1,4 +1,4 @@
-module github/ihuem/xyJson
+module github.com/ihuem/xyJson
 
 go 1.21
 

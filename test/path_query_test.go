@@ -6,8 +6,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	xyJson "github/ihuem/xyJson"
-	"github/ihuem/xyJson/test/testutil"
+	xyJson "github.com/ihuem/xyJson"
+	"github.com/ihuem/xyJson/test/testutil"
 )
 
 // TestJSONPathBasicQuery 测试基本JSONPath查询
