@@ -314,6 +314,26 @@ type IParser interface {
 	// ParseString parses a JSON string
 	ParseString(jsonStr string) (IValue, error)
 
+	// ParseFromMap 从map[string]interface{}解析为IValue
+	// ParseFromMap parses from map[string]interface{} to IValue
+	//
+	// 参数 Parameters:
+	//   - data: 要解析的map数据 / Map data to parse
+	//
+	// 返回值 Returns:
+	//   - IValue: 解析后的JSON值 / Parsed JSON value
+	//   - error: 解析错误 / Parse error
+	//
+	// 使用示例 Usage Example:
+	//	data := map[string]interface{}{
+	//		"name": "John",
+	//		"age": 30,
+	//		"active": true,
+	//	}
+	//	parser := xyJson.NewParser()
+	//	value, err := parser.ParseFromMap(data)
+	ParseFromMap(data map[string]interface{}) (IValue, error)
+
 	// SetMaxDepth 设置最大解析深度
 	// SetMaxDepth sets the maximum parsing depth
 	SetMaxDepth(depth int)

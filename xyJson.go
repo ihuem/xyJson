@@ -192,6 +192,81 @@ func MustParseString(data string) IValue {
 	return result
 }
 
+// ParseFromMap 从map[string]interface{}解析为IValue的全局便捷函数
+// ParseFromMap is a global convenience function to parse from map[string]interface{} to IValue
+//
+// 参数 Parameters:
+//   - data: 要解析的map数据 / Map data to parse
+//
+// 返回值 Returns:
+//   - IValue: 解析后的JSON值 / Parsed JSON value
+//   - error: 解析错误 / Parse error
+//
+// 使用示例 Usage Example:
+//
+//	data := map[string]interface{}{
+//		"name": "John",
+//		"age": 30,
+//		"active": true,
+//		"address": map[string]interface{}{
+//			"city": "New York",
+//			"zip": "10001",
+//		},
+//		"hobbies": []interface{}{"reading", "swimming"},
+//	}
+//	value, err := xyJson.ParseFromMap(data)
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//	fmt.Println(value.String())
+func ParseFromMap(data map[string]interface{}) (IValue, error) {
+	timer := GetGlobalMonitor().StartParseTimer()
+	var hasError bool
+	defer func() {
+		if hasError {
+			timer.EndWithError()
+		} else {
+			timer.End()
+		}
+	}()
+
+	// 从对象池获取parser实例以提高性能
+	// Get parser instance from object pool for better performance
+	parser := parserPool.Get().(IParser)
+	defer parserPool.Put(parser)
+
+	result, err := parser.ParseFromMap(data)
+	if err != nil {
+		hasError = true
+	}
+	return result, err
+}
+
+// MustParseFromMap 从map[string]interface{}解析为IValue，失败时返回null值
+// MustParseFromMap parses from map[string]interface{} to IValue, returns null value on failure
+//
+// 参数 Parameters:
+//   - data: 要解析的map数据 / Map data to parse
+//
+// 返回值 Returns:
+//   - IValue: 解析后的JSON值 / Parsed JSON value
+//
+// 使用示例 Usage Example:
+//
+//	data := map[string]interface{}{
+//		"name": "John",
+//		"age": 30,
+//	}
+//	value := xyJson.MustParseFromMap(data)
+//	fmt.Println(value.String())
+func MustParseFromMap(data map[string]interface{}) IValue {
+	result, err := ParseFromMap(data)
+	if err != nil {
+		return CreateNull()
+	}
+	return result
+}
+
 // Serialize 将JSON值序列化为字节数组
 // Serialize serializes a JSON value to a byte array
 //

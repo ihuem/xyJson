@@ -30,7 +30,7 @@ type Address struct {
 	Zip    string `json:"zip"`
 }
 
-func main() {
+func main9() {
 	// 示例JSON数据
 	// Sample JSON data
 	jsonData := `{

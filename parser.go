@@ -32,6 +32,100 @@ func NewParser() IParser {
 	}
 }
 
+// ParseFromMap 从map[string]interface{}解析为IValue
+// ParseFromMap parses from map[string]interface{} to IValue
+func (p *parser) ParseFromMap(data map[string]interface{}) (IValue, error) {
+	if data == nil {
+		return p.factory.CreateNull(), nil
+	}
+	return p.convertMapToValue(data, 0)
+}
+
+// convertMapToValue 将map[string]interface{}转换为IValue
+// convertMapToValue converts map[string]interface{} to IValue
+func (p *parser) convertMapToValue(data interface{}, depth int) (IValue, error) {
+	if depth > p.maxDepth {
+		return nil, NewInvalidJSONError("maximum depth exceeded", nil)
+	}
+
+	switch v := data.(type) {
+	case nil:
+		return p.factory.CreateNull(), nil
+	case bool:
+		return p.factory.CreateBool(v), nil
+	case string:
+		return p.factory.CreateString(v), nil
+	case int:
+		return p.factory.CreateNumber(v), nil
+	case int8:
+		return p.factory.CreateNumber(v), nil
+	case int16:
+		return p.factory.CreateNumber(v), nil
+	case int32:
+		return p.factory.CreateNumber(v), nil
+	case int64:
+		return p.factory.CreateNumber(v), nil
+	case uint:
+		return p.factory.CreateNumber(v), nil
+	case uint8:
+		return p.factory.CreateNumber(v), nil
+	case uint16:
+		return p.factory.CreateNumber(v), nil
+	case uint32:
+		return p.factory.CreateNumber(v), nil
+	case uint64:
+		return p.factory.CreateNumber(v), nil
+	case float32:
+		return p.factory.CreateNumber(v), nil
+	case float64:
+		return p.factory.CreateNumber(v), nil
+	case map[string]interface{}:
+		return p.convertMapToObject(v, depth+1)
+	case []interface{}:
+		return p.convertSliceToArray(v, depth+1)
+	default:
+		return nil, NewInvalidJSONError("unsupported type in map", nil)
+	}
+}
+
+// convertMapToObject 将map[string]interface{}转换为IObject
+// convertMapToObject converts map[string]interface{} to IObject
+func (p *parser) convertMapToObject(data map[string]interface{}, depth int) (IValue, error) {
+	obj := p.factory.CreateObject()
+	
+	for key, value := range data {
+		convertedValue, err := p.convertMapToValue(value, depth)
+		if err != nil {
+			return nil, err
+		}
+		err = obj.Set(key, convertedValue)
+		if err != nil {
+			return nil, err
+		}
+	}
+	
+	return obj, nil
+}
+
+// convertSliceToArray 将[]interface{}转换为IArray
+// convertSliceToArray converts []interface{} to IArray
+func (p *parser) convertSliceToArray(data []interface{}, depth int) (IValue, error) {
+	arr := p.factory.CreateArray()
+	
+	for _, value := range data {
+		convertedValue, err := p.convertMapToValue(value, depth)
+		if err != nil {
+			return nil, err
+		}
+		err = arr.Append(convertedValue)
+		if err != nil {
+			return nil, err
+		}
+	}
+	
+	return arr, nil
+}
+
 // NewParserWithFactory 使用指定工厂创建JSON解析器
 // NewParserWithFactory creates a JSON parser with the specified factory
 func NewParserWithFactory(factory IValueFactory) IParser {
